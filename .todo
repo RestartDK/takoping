@@ -1,30 +1,30 @@
 Todo:
-  # Backend - Local first, AWS-ready
-  ✔ Set up Chromadb locally and seed a test collection @started(25-10-30 11:28) @done(25-10-30 11:28) @lasted(28s)
-  - Configure Ollama on LAN tower; document model selection and endpoints
-  - Create Bun backend skeleton (HTTP + WebSocket) and .env config
-  - Implement GitHub API repo scan with auth, rate limit handling
-  - Build repo tree model and metrics (size, file count, recent changes)
-  - Implement embedding pipeline and persist to Chromadb
-  - Integrate Vercel AI SDK with provider env switch (Ollama local, NIM custom)
-  - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
-  - Expose API endpoints for tours, diagrams, and agent actions
+  Backend:
+    ✔ Set up Chromadb locally and seed a test collection @started(25-10-30 11:28) @done(25-10-30 11:28) @lasted(28s)
+    ✔ Configure Ollama on LAN tower; document model selection and endpoints @done(25-10-30 11:35)
+    - Create Bun backend skeleton (HTTP + WebSocket) and .env config
+    - Implement GitHub API repo scan with auth, rate limit handling
+    - Build repo tree model and metrics (size, file count, recent changes)
+    - Implement embedding pipeline and persist to Chromadb
+    - Integrate Vercel AI SDK with provider env switch (Ollama local, NIM custom)
+    - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
+    - Expose API endpoints for tours, diagrams, and agent actions
 
-  # Frontend - Vite TS + shadcn + React Flow + Jotai
-  - Initialize project and UI kit (vite, shadcn setup, Jotai store)
-  - Implement treemap canvas with LoD zoom thresholds
-  - Add tooltips, right-click menu, selection/highlight overlays
-  - Build chat panel with "Take me there" executing agent tool calls
-  - Implement code viewer with file range highlighting and tabs
-  - Persist diagram tabs/presets (filters, weighting)
+  Frontend: 
+    - Initialize project and UI kit (vite, shadcn setup, Jotai store)
+    - Implement treemap canvas with LoD zoom thresholds
+    - Add tooltips, right-click menu, selection/highlight overlays
+    - Build chat panel with "Take me there" executing agent tool calls
+    - Implement code viewer with file range highlighting and tabs
+    - Persist diagram tabs/presets (filters, weighting)
 
-  # Deployment - Manual then Terraform
-  - Manual deploy: EC2 for Bun, EC2 for Chromadb, SageMaker NIM endpoints
-  - Wire DNS/SSL and env vars to AWS services
-  - Terraform IaC: VPC, EC2, SG, IAM, SageMaker endpoints, DNS
-  - Optional: CI/CD workflow to build/deploy backend/frontend
+  Deployment:
+    - Manual deploy: EC2 for Bun, EC2 for Chromadb, SageMaker NIM endpoints
+    - Wire DNS/SSL and env vars to AWS services
+    - Terraform IaC: VPC, EC2, SG, IAM, SageMaker endpoints, DNS
+    - Optional: CI/CD workflow to build/deploy backend/frontend
 
-  # Ops & Extras
-  - Add tracing/logging and minimal onboarding Q&A eval set
-  - Add "Open in Cursor" action from answers/diagrams
-  - Switch branch control in UI and data source
+  Ops & Extras:
+    - Add tracing/logging and minimal onboarding Q&A eval set
+    - Add "Open in Cursor" action from answers/diagrams
+    - Switch branch control in UI and data source
