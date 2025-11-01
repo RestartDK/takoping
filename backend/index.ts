@@ -1,23 +1,50 @@
-import { ChromaClient } from "chromadb";
-const client = new ChromaClient();
+import { ragRoute, ragAddRoute } from "./src/routes/rag";
+import { ingestRoute, ingestStatusRoute, webhookRoute } from "./src/routes/github";
+import { getTreeRoute, getPresetsRoute, savePresetRoute } from "./src/routes/diagrams";
+import { initSchema } from "./src/db/postgres";
 
-// switch `createCollection` to `getOrCreateCollection` to avoid creating a new collection every time
-const collection = await client.getOrCreateCollection({
-  name: "my_collection",
+// Initialize PostgreSQL schema
+await initSchema();
+
+Bun.serve({
+	port: process.env.PORT ? Number(process.env.PORT) : 3000,
+	routes: {
+		// Health check
+		"/health": new Response("ok"),
+
+		// RAG routes
+		"/api/rag/query": {
+			POST: ragRoute,
+		},
+		"/api/rag/add": {
+			POST: ragAddRoute,
+		},
+
+		// GitHub routes
+		"/api/github/ingest": {
+			POST: ingestRoute,
+		},
+		"/api/github/ingest/status/:jobId": {
+			GET: (req) => ingestStatusRoute(req, { jobId: req.params.jobId }),
+		},
+		"/api/github/webhook": {
+			POST: webhookRoute,
+		},
+
+		// Diagram routes
+		"/api/diagrams/tree": {
+			GET: getTreeRoute,
+		},
+		"/api/diagrams/presets": {
+			GET: getPresetsRoute,
+		},
+		"/api/diagrams/preset": {
+			POST: savePresetRoute,
+		},
+	},
+	fetch(req) {
+		return new Response("Not Found", { status: 404 });
+	},
 });
 
-// switch `addRecords` to `upsertRecords` to avoid adding the same documents every time
-await collection.upsert({
-  documents: [
-    "This is a document about pineapple",
-    "This is a document about oranges",
-  ],
-  ids: ["id1", "id2"],
-});
-
-const results = await collection.query({
-  queryTexts: ["This is a query document about florida"], // Chroma will embed this for you
-  nResults: 2, // how many results to return
-});
-
-console.log(results);
+console.log("Server running on port", process.env.PORT || 3000);
