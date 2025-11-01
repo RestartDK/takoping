@@ -10,7 +10,13 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^1.0.24",
     "@chroma-core/default-embed": "^0.1.8",
-    "chromadb": "^3.1.0"
+    "@chroma-core/ollama": "^0.1.7",
+    "ai": "^5.0.82",
+    "ai-sdk-ollama": "^1.0.0",
+    "chromadb": "^3.1.0",
+    "octokit": "^5.0.5",
+    "zod": "^4.1.12"
   }
 }
