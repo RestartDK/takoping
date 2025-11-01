@@ -177,11 +177,36 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 ### 8.2 Backend
 
 - **Bun backend:** Bun server (EC2)
-- **Database:** Chromadb as vector db (ec2 instance)
 - **AI model:** NVIDIA NIM microservice llama-3 1-nemotron-nano-8B-v1 large language reasoning mode as an endpoint (sagemaker)
 - **Embeddings model:** Retrieval embedding NIM as an endpoint (sagemaker)
 - **AI client SDK:** Vercel AI SDK for model/agent interactions (providers: Ollama local, custom NIM endpoint)
 - **Real-time Updates:** WebSocket connections for live updates using Bun's native WebSocket API
+
+#### Database Architecture
+
+**Hybrid Two-Database Approach:**
+
+- **PostgreSQL**: Relational data storage
+  - User authentication and preferences
+  - Repository metadata (owner, description, stars, indexing status)
+  - File/directory tree structure with metrics (inspired by [repo-visualizer](https://github.com/githubocto/repo-visualizer))
+  - Diagram presets and configurations
+  - Hierarchical queries and aggregations
+  - Tree structure with metrics, computed React Flow layout server-side
+
+- **ChromaDB**: Vector database for semantic search (EC2 instance)
+  - Code chunks with embeddings
+  - Metadata per chunk (repo, path, language, line ranges, symbols)
+  - Cosine similarity search for RAG
+
+**Integration Pattern:**
+
+1. Ingestion: GitHub tree → PostgreSQL (structure) + ChromaDB (content)
+2. Default diagram: Query PostgreSQL tree structure
+3. Semantic search: Query ChromaDB → Enrich with PostgreSQL context
+4. Custom diagrams: AI-generated, saved to PostgreSQL
+5. Hybrid queries: Combine vector search with tree structure
+6. API returns React Flow-compatible nodes per https://reactflow.dev/api-reference
 
 ### 8.3 AI/ML Pipeline
 
