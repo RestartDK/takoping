@@ -10,25 +10,26 @@ Todo:
     ✔ Integrate normal schemas from postgres with bun @started(25-11-01 13:37) @done(25-11-01 14:43) @lasted(1h6m54s)
     ✔ Integrate pg with chromadb vector search @done(25-11-01 14:43)
     ✔ Test end to end with a simple fe with the backend, only care about diagrams all streaming and stuff come after @done(25-11-01 15:08)
+    ✔ Build repo tree model and metrics (size, file count, recent changes) @done(25-11-01 15:28)
     ✔ Rename backend to server and frontend to client @done(25-11-01 15:08)
-    - Fix all the type errors and stupid logic from the ai @started(25-11-01 15:08)
+    ✔ Fix all the type errors and stupid logic from the ai @started(25-11-01 15:08) @done(25-11-01 15:26) @lasted(18m31s)
+    ✔ Review code from ai and understand deeply what was made, fixing any logic problems @started(25-11-01 15:26) @done(25-11-01 16:31) @lasted(1h5m3s)
+    ✔ Fix consistency of chunking pattern @done(25-11-01 16:31)
+    - Fix type for the github api
+    - Fix return for github api to just be exported directly instead of called as a function @started(25-11-01 16:31)
     - Implement tool calls so that we can actually have a new diagram generated for the user, like the ai must determine when to do this action using a tool call and then make a new preset diagram
-    - Implement the option to see all your preset diagrams temp for the fe
-    - Make docker compose to run the app with pg db, chroma, be, and fe
-    - Figure out how to structure metadata to be able to reference code snippets, and files
-    - Create plan on how to generate the diagram for the whole repository (use github next example)
-    - Make the tools the llm can use during your conversation with it, so it can make a new diagram etc
-    - Try with normal rag to generate the diagrams, then experiment with agentic rag using this [framework](https://medium.com/@aydinKerem/ai-agents-design-patterns-explained-b3ac0433c915)
+    - Implement better prompts throughout for citing and actually using tools
     - Create the feature where you can generate a new diagram and have the option to save it
+    - Add chat history
     - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
-    - Expose API endpoints for tours, diagrams, and agent actions
+    - Try with normal rag to generate the diagrams, then experiment with agentic rag using this [framework](https://medium.com/@aydinKerem/ai-agents-design-patterns-explained-b3ac0433c915)
+    - Experiment with multiple agent solutions, see which one performs best
+    - Make docker compose to run the app with pg db, chroma, be, and fe
+    - Create plan on how to generate the diagram for the whole repository (use github next example)
     - Attempt to deploy a llama reasoning model on aws
     - Attempt to deploy a retrieval nim on aws
     - Create custom implementation of retrieval nim for chromadb embeddings function
     ✔ Implement GitHub API repo scan with auth, rate limit handling @done(25-11-01 13:08)
-    - Build repo tree model and metrics (size, file count, recent changes)
-    - Implement embedding pipeline and persist to Chromadb
-    - Integrate Vercel AI SDK with provider env switch (Ollama local, NIM custom)
 
   Client: 
     - Initialize project and UI kit (vite, shadcn setup, Jotai store)
@@ -48,3 +49,4 @@ Todo:
     - Add tracing/logging and minimal onboarding Q&A eval set
     - Add "Open in Cursor" action from answers/diagrams
     - Switch branch control in UI and data source
+    - Use `Workers` from bun to handle jobs
