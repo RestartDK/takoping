@@ -36,27 +36,11 @@ const BINARY_EXTENSIONS = new Set([
 	"webm",
 ]);
 
-const DEFAULT_EXCLUDES = [
-	"node_modules",
-	"dist",
-	"build",
-	".next",
-	".git",
-	"coverage",
-	".nyc_output",
-	"*.log",
-	"*.lock",
-	".DS_Store",
-	"*.min.js",
-	"*.min.css",
-];
-
 export interface IngestOptions {
 	owner: string;
 	repo: string;
 	branch?: string;
 	rootPath?: string;
-	excludeGlobs?: string[];
 }
 
 export interface IngestJob {
@@ -72,49 +56,11 @@ export interface IngestJob {
 
 const jobs = new Map<string, IngestJob>();
 
-function shouldExclude(path: string, excludeGlobs: string[]): boolean {
-	const allExcludes = [...DEFAULT_EXCLUDES, ...excludeGlobs];
-	for (const pattern of allExcludes) {
-		if (pattern.includes("*")) {
-			const regex = new RegExp(pattern.replace(/\*/g, ".*"));
-			if (regex.test(path)) return true;
-		} else if (path.includes(pattern)) {
-			return true;
-		}
-	}
-	return false;
-}
-
 function isBinaryFile(path: string, size?: number): boolean {
 	const ext = path.split(".").pop()?.toLowerCase() || "";
 	if (BINARY_EXTENSIONS.has(ext)) return true;
 	if (size && size > 2 * 1024 * 1024) return true; // >2MB
 	return false;
-}
-
-async function fetchGitignore(
-	octokit: ReturnType<typeof getOctokit>,
-	owner: string,
-	repo: string,
-	branch: string
-): Promise<string[]> {
-	try {
-		const response = await octokit.rest.repos.getContent({
-			owner,
-			repo,
-			path: ".gitignore",
-			ref: branch,
-		});
-
-		if (Array.isArray(response.data) || response.data.type !== "file") {
-			return [];
-		}
-
-		const content = Buffer.from(response.data.content, "base64").toString("utf-8");
-		return content.split("\n").filter((line) => line.trim() && !line.startsWith("#"));
-	} catch {
-		return [];
-	}
 }
 
 async function getRepoTree(
@@ -182,23 +128,23 @@ async function indexFile(
 	// file.path is already the full path from repo root, so use it directly
 	const fullPath = file.path;
 
-	if (isBinaryFile(file.path, file.size)) {
+	if (isBinaryFile(fullPath, file.size)) {
 		return { chunks: 0, skipped: true };
 	}
 
 	try {
-		console.log(`[DEBUG] Starting to index ${file.path} (size: ${file.size || "unknown"})`);
-		const { content, sha } = await fetchFileContent(octokit, owner, repo, file.path, branch);
-		console.log(`[DEBUG] Fetched content for ${file.path}: ${content.length} chars, sha: ${sha.substring(0, 8)}...`);
+		console.log(`[DEBUG] Starting to index ${fullPath} (size: ${file.size || "unknown"})`);
+		const { content, sha } = await fetchFileContent(octokit, owner, repo, fullPath, branch);
+		console.log(`[DEBUG] Fetched content for ${fullPath}: ${content.length} chars, sha: ${sha.substring(0, 8)}...`);
 
-		const language = detectLanguage(file.path);
-		console.log(`[DEBUG] Detected language for ${file.path}: ${language}`);
+		const language = detectLanguage(fullPath);
+		console.log(`[DEBUG] Detected language for ${fullPath}: ${language}`);
 		
 		const chunks = chunkByLanguage(content, language);
-		console.log(`[DEBUG] Generated ${chunks.length} chunks for ${file.path}`);
+		console.log(`[DEBUG] Generated ${chunks.length} chunks for ${fullPath}`);
 
 		if (chunks.length === 0) {
-			console.warn(`[DEBUG] No chunks generated for ${file.path} (language: ${language}, content length: ${content.length})`);
+			console.warn(`[DEBUG] No chunks generated for ${fullPath} (language: ${language}, content length: ${content.length})`);
 			return { chunks: 0, skipped: true };
 		}
 
@@ -220,6 +166,8 @@ async function indexFile(
 
 		for (let i = 0; i < chunks.length; i++) {
 			const chunk = chunks[i];
+			if (!chunk) continue;
+			
 			const id = `gh:${owner}/${repo}:${branch}:${fullPath}#L${chunk.startLine}-${chunk.endLine}:${sha}`;
 			ids.push(id);
 			documents.push(chunk.text);
@@ -265,10 +213,10 @@ async function indexFile(
 
 		return { chunks: chunks.length, skipped: false };
 	} catch (error) {
-		console.error(`[ERROR] Failed to index ${file.path}:`, {
+		console.error(`[ERROR] Failed to index ${fullPath}:`, {
 			error: error instanceof Error ? error.message : String(error),
 			stack: error instanceof Error ? error.stack : undefined,
-			file: file.path,
+			file: fullPath,
 			size: file.size,
 		});
 		return { chunks: 0, skipped: true };
@@ -310,13 +258,10 @@ export async function ingestRepository(options: IngestOptions): Promise<string> 
 			await updateRepositoryIndexingStatus(`${options.owner}/${options.repo}`, "indexing");
 			console.log(`[INGEST] Repository status updated to indexing`);
 
-			const gitignore = await fetchGitignore(octokit, options.owner, options.repo, branch);
-			const excludeGlobs = [...gitignore, ...(options.excludeGlobs || [])];
-
 			const tree = await getRepoTree(octokit, options.owner, options.repo, branch);
 			
 			// 2. Build file tree structure for PostgreSQL
-			const treeNodes = buildTreeStructure(tree, options.rootPath, excludeGlobs);
+			const treeNodes = buildTreeStructure(tree, options.rootPath);
 			await buildFileTree(repo.id, treeNodes);
 
 			let filesProcessed = 0;
@@ -328,7 +273,7 @@ export async function ingestRepository(options: IngestOptions): Promise<string> 
 				if (options.rootPath && !file.path.startsWith(options.rootPath)) {
 					return false;
 				}
-				return !shouldExclude(file.path, excludeGlobs);
+				return true;
 			});
 
 			job.counts.files = filesToProcess.length;
@@ -347,6 +292,8 @@ export async function ingestRepository(options: IngestOptions): Promise<string> 
 				for (let j = 0; j < batch.length; j++) {
 					const file = batch[j];
 					const result = results[j];
+					
+					if (!file || !result) continue;
 					
 					if (result.skipped) {
 						filesSkipped++;
@@ -455,6 +402,8 @@ export async function deltaUpdate(
 
 				for (let i = 0; i < chunks.length; i++) {
 					const chunk = chunks[i];
+					if (!chunk) continue;
+					
 					const id = `gh:${owner}/${repo}:${branch}:${file.filename}#L${chunk.startLine}-${chunk.endLine}:${sha}`;
 					ids.push(id);
 					documents.push(chunk.text);
@@ -510,8 +459,7 @@ export async function deltaUpdate(
 // Helper to build tree structure from flat GitHub tree
 function buildTreeStructure(
 	githubTree: GitHubFile[],
-	rootPath?: string,
-	excludeGlobs?: string[]
+	rootPath?: string
 ): Array<{
 	path: string;
 	name: string;
@@ -527,6 +475,7 @@ function buildTreeStructure(
 
 	// Collect all directory paths
 	for (const file of githubTree) {
+		if (!file.path) continue;
 		const parts = file.path.split("/");
 		for (let i = 0; i < parts.length - 1; i++) {
 			directories.add(parts.slice(0, i + 1).join("/"));
@@ -536,9 +485,12 @@ function buildTreeStructure(
 	// Create directory nodes
 	for (const dirPath of Array.from(directories).sort()) {
 		const parts = dirPath.split("/");
+		const name = parts[parts.length - 1];
+		if (!name) continue;
+		
 		nodes.push({
 			path: dirPath,
-			name: parts[parts.length - 1],
+			name,
 			type: "directory" as const,
 			parentPath: parts.length > 1 ? parts.slice(0, -1).join("/") : undefined,
 		});
@@ -546,18 +498,21 @@ function buildTreeStructure(
 
 	// Create file nodes
 	for (const file of githubTree) {
-		if (shouldExclude(file.path, excludeGlobs || [])) continue;
+		if (!file.path) continue;
 		if (isBinaryFile(file.path, file.size)) continue;
 
 		const parts = file.path.split("/");
-		const extension = parts[parts.length - 1].includes(".") ? parts[parts.length - 1].split(".").pop() : undefined;
+		const fileName = parts[parts.length - 1];
+		if (!fileName) continue;
+		
+		const extension = fileName.includes(".") ? fileName.split(".").pop() : undefined;
 
 		// Ensure size is a valid number and within BIGINT range (max: 9223372036854775807)
 		const safeSize = typeof file.size === "number" && file.size >= 0 && file.size < 9223372036854775807 ? file.size : 0;
 
 		nodes.push({
 			path: file.path,
-			name: parts[parts.length - 1],
+			name: fileName,
 			type: "file" as const,
 			parentPath: parts.length > 1 ? parts.slice(0, -1).join("/") : undefined,
 			size: safeSize,

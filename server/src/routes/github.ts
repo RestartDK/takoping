@@ -8,8 +8,20 @@ const IngestSchema = z.object({
 	repo: z.string().min(1, "repo is required"),
 	branch: z.string().optional(),
 	rootPath: z.string().optional(),
-	excludeGlobs: z.array(z.string()).optional(),
 });
+
+const WebhookPayloadSchema = z.object({
+	ref: z.string().optional(),
+	before: z.string().optional(),
+	after: z.string().optional(),
+	repository: z.object({
+		name: z.string(),
+		owner: z.object({
+			login: z.string().optional(),
+			name: z.string().optional(),
+		}),
+	}).optional(),
+}).loose(); 
 
 export const ingestRoute = async (req: Request) => {
 	if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
@@ -78,7 +90,16 @@ export const webhookRoute = async (req: Request) => {
 	}
 
 	try {
-		const payload = await req.json();
+		const parsed = WebhookPayloadSchema.safeParse(await req.json());
+		if (!parsed.success) {
+			// For webhooks, we want to be lenient - just log and return received
+			console.warn("/api/github/webhook validation failed", z.treeifyError(parsed.error));
+			return new Response(JSON.stringify({ received: true, skipped: "invalid payload" }), {
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		const payload = parsed.data;
 		// TODO: Verify webhook signature using X-Hub-Signature-256 header
 
 		if (payload.ref && payload.before && payload.after && payload.repository) {
@@ -86,6 +107,12 @@ export const webhookRoute = async (req: Request) => {
 			const repo = payload.repository.name;
 			const beforeSha = payload.before;
 			const afterSha = payload.after;
+
+			if (!owner || !repo) {
+				return new Response(JSON.stringify({ received: true, skipped: "missing owner or repo" }), {
+					headers: { "content-type": "application/json" },
+				});
+			}
 
 			// Skip if this is a tag or delete event
 			if (!payload.ref.startsWith("refs/heads/")) {
