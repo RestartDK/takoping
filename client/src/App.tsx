@@ -105,7 +105,7 @@ export default function App() {
     setStatus('Sending query...');
     
     try {
-      const res = await fetch(`${API_BASE}/api/rag/query`, {
+      const res = await fetch(`${API_BASE}/api/chat/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: chatInput }),
