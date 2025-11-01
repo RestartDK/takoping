@@ -1,7 +1,5 @@
 import type { Collection, Metadata, Where } from "chromadb";
 import { env } from "../env";
-
-// Re-export addText from vector storage for backwards compatibility
 export { addText } from "../vector/storage";
 
 export interface SearchFilters {
