@@ -1,4 +1,5 @@
-import { getOctokit, type GitHubFile } from "./client";
+import { octokit, type GitHubFile } from "./client";
+import type { Octokit } from "octokit";
 import { chunkByLanguage, detectLanguage } from "../vector/chunkers";
 import { getDocumentsCollection } from "../vector/collections";
 import type { Collection } from "chromadb";
@@ -65,7 +66,7 @@ function isBinaryFile(path: string, size?: number): boolean {
 }
 
 async function getRepoTree(
-	octokit: ReturnType<typeof getOctokit>,
+	octokit: Octokit,
 	owner: string,
 	repo: string,
 	branch: string
@@ -93,7 +94,7 @@ async function getRepoTree(
 }
 
 export async function fetchFileContent(
-	octokit: ReturnType<typeof getOctokit>,
+	octokit: Octokit,
 	owner: string,
 	repo: string,
 	path: string,
@@ -119,7 +120,7 @@ export async function fetchFileContent(
 }
 
 async function indexFile(
-	octokit: ReturnType<typeof getOctokit>,
+	octokit: Octokit,
 	collection: Collection,
 	owner: string,
 	repo: string,
@@ -205,9 +206,6 @@ export async function ingestRepository(options: IngestOptions): Promise<string> 
 		try {
 			job.status = "running";
 			console.log(`[INGEST] Starting ingestion for ${options.owner}/${options.repo}`);
-			
-			const octokit = getOctokit();
-			console.log(`[INGEST] Octokit client initialized`);
 			
 			const collection = await getDocumentsCollection();
 			console.log(`[INGEST] ChromaDB collection retrieved`);
@@ -303,7 +301,7 @@ export function getIngestJob(jobId: string): IngestJob | null {
 }
 
 export async function deltaUpdate(
-	octokit: ReturnType<typeof getOctokit>,
+	octokit: Octokit,
 	collection: Collection,
 	owner: string,
 	repo: string,

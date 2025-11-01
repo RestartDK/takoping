@@ -1,19 +1,13 @@
 import { Octokit } from "octokit";
 import { env } from "../env";
 
-let octokitInstance: Octokit | null = null;
-
-export function getOctokit(): Octokit {
-	if (!octokitInstance) {
-		if (!env.GITHUB_TOKEN) {
-			throw new Error("GITHUB_TOKEN is required for GitHub API access");
-		}
-		octokitInstance = new Octokit({
-			auth: env.GITHUB_TOKEN,
-		});
-	}
-	return octokitInstance;
+if (!env.GITHUB_TOKEN) {
+	throw new Error("GITHUB_TOKEN is required for GitHub API access");
 }
+
+export const octokit = new Octokit({
+	auth: env.GITHUB_TOKEN,
+});
 
 export type GitHubFile = {
 	path: string;

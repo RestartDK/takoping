@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ingestRepository, getIngestJob, deltaUpdate } from "../github/ingest";
-import { getOctokit } from "../github/client";
+import { octokit } from "../github/client";
 import { getDocumentsCollection } from "../vector/collections";
 
 const IngestSchema = z.object({
@@ -124,7 +124,6 @@ export const webhookRoute = async (req: Request) => {
 			const branch = payload.ref.replace("refs/heads/", "");
 
 			// Process delta update
-			const octokit = getOctokit();
 			const collection = await getDocumentsCollection();
 			const result = await deltaUpdate(octokit, collection, owner, repo, beforeSha, afterSha, branch);
 
