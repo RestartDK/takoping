@@ -1,4 +1,4 @@
-import { ragRoute, ragAddRoute } from "./src/routes/rag";
+import { chatRoute, chatAddRoute } from "./src/routes/chat";
 import { ingestRoute, ingestStatusRoute, webhookRoute } from "./src/routes/github";
 import { getTreeRoute, getPresetsRoute, savePresetRoute } from "./src/routes/diagrams";
 import { initSchema } from "./src/db/client";
@@ -42,12 +42,12 @@ Bun.serve({
 		// Health check
 		"/health": new Response("ok", { headers: corsHeaders }),
 
-		// RAG routes
-		"/api/rag/query": {
-			POST: withCors(ragRoute),
+		// Chat routes
+		"/api/chat/query": {
+			POST: withCors(chatRoute),
 		},
-		"/api/rag/add": {
-			POST: withCors(ragAddRoute),
+		"/api/chat/add": {
+			POST: withCors(chatAddRoute),
 		},
 
 		// GitHub routes

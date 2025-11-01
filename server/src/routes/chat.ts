@@ -2,7 +2,7 @@ import { env } from "../env";
 import { z } from "zod";
 import { formatContexts, searchByText, addText } from "../ai/retriever";
 import { buildPrompt } from "../ai/prompt";
-import { generateRagAnswer } from "../ai/client";
+import { generateResponse } from "../ai/client";
 import { getDocumentsCollection } from "../vector/collections";
 
 const QuerySchema = z.object({
@@ -16,7 +16,7 @@ const AddSchema = z.object({
 	idPrefix: z.string().optional(),
 });
 
-export const ragRoute = async (req: Request) => {
+export const chatRoute = async (req: Request) => {
 	if (req.method !== "POST")
 		return new Response("Method Not Allowed", { status: 405 });
 	const contentType = req.headers.get("content-type") || "";
@@ -33,7 +33,7 @@ export const ragRoute = async (req: Request) => {
 	const parsed = QuerySchema.safeParse(await req.json());
 	if (!parsed.success) {
 		console.warn(
-			"/api/rag/query validation failed",
+			"/api/chat/query validation failed",
 			z.treeifyError(parsed.error)
 		);
 		return new Response(
@@ -46,7 +46,7 @@ export const ragRoute = async (req: Request) => {
 	}
 
 	const { query } = parsed.data;
-	console.log("/api/rag/query received", { query, topK: env.RETRIEVE_TOP_K });
+	console.log("/api/chat/query received", { query, topK: env.RETRIEVE_TOP_K });
 
 	try {
 		const collection = await getDocumentsCollection();
@@ -63,7 +63,7 @@ export const ragRoute = async (req: Request) => {
 		});
 		const context = formatContexts(results);
 		const prompt = buildPrompt(query, context);
-		const { text } = await generateRagAnswer(prompt);
+		const { text } = await generateResponse(prompt);
 		console.log("Generated answer length", { length: text.length });
 
 		// Extract referenced nodes and create suggested actions
@@ -119,7 +119,7 @@ export const ragRoute = async (req: Request) => {
 	}
 };
 
-export const ragAddRoute = async (req: Request) => {
+export const chatAddRoute = async (req: Request) => {
 	if (req.method !== "POST")
 		return new Response("Method Not Allowed", { status: 405 });
 	const contentType = req.headers.get("content-type") || "";
@@ -136,7 +136,7 @@ export const ragAddRoute = async (req: Request) => {
 	const parsed = AddSchema.safeParse(await req.json());
 	if (!parsed.success) {
 		console.warn(
-			"/api/rag/add validation failed",
+			"/api/chat/add validation failed",
 			z.treeifyError(parsed.error)
 		);
 		return new Response(
@@ -151,7 +151,7 @@ export const ragAddRoute = async (req: Request) => {
 	const { text, source, idPrefix } = parsed.data;
 	// TODO: When I added source it worked
 	console.log(parsed.data);
-	console.log("/api/rag/add received", {
+	console.log("/api/chat/add received", {
 		source,
 		idPrefix,
 		textLength: text.length,
@@ -166,10 +166,11 @@ export const ragAddRoute = async (req: Request) => {
 			headers: { "content-type": "application/json" },
 		});
 	} catch (err) {
-		console.error("/api/rag/add failed", err);
+		console.error("/api/chat/add failed", err);
 		return new Response(JSON.stringify({ error: "Internal Server Error" }), {
 			status: 500,
 			headers: { "content-type": "application/json" },
 		});
 	}
 };
+
