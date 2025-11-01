@@ -43,3 +43,4 @@ export class NIMEmbedding implements EmbeddingFunction {
     return data.data.map((d) => d.embedding);
   }
 }
+

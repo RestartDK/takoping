@@ -1,7 +1,7 @@
 import { ragRoute, ragAddRoute } from "./src/routes/rag";
 import { ingestRoute, ingestStatusRoute, webhookRoute } from "./src/routes/github";
 import { getTreeRoute, getPresetsRoute, savePresetRoute } from "./src/routes/diagrams";
-import { initSchema } from "./src/db/postgres";
+import { initSchema } from "./src/db/client";
 
 // Initialize PostgreSQL schema
 await initSchema();

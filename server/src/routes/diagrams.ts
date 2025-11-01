@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset } from "../db/postgres";
+import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset } from "../db/queries";
 
 const SavePresetSchema = z.object({
 	owner: z.string().min(1, "owner is required"),

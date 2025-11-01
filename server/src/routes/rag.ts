@@ -3,7 +3,7 @@ import { z } from "zod";
 import { formatContexts, searchByText, addText } from "../ai/retriever";
 import { buildPrompt } from "../ai/prompt";
 import { generateRagAnswer } from "../ai/client";
-import { getDocumentsCollection } from "../db/collections";
+import { getDocumentsCollection } from "../vector/collections";
 
 const QuerySchema = z.object({
 	query: z.string().min(1, "query is required"),

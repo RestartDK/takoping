@@ -1,58 +1,8 @@
 import type { Collection, Metadata, Where } from "chromadb";
 import { env } from "../env";
 
-// Chunking strategy
-// FIXME: Maybe remove this part here I already have /chunkers for this..?
-const generateChunks = (input: string): string[] => {
-	return input
-		.trim()
-		.split(".")
-		.filter((i) => i !== "");
-};
-
-// Adding new data to vector db embeddings
-export async function addText(
-	collection: Collection,
-	text: string,
-	options: {
-		source?: string;
-		idPrefix?: string;
-	} = {}
-): Promise<string[]> {
-	const chunks = generateChunks(text);
-
-	if (chunks.length === 0) {
-		return [];
-	}
-
-	const ids: string[] = [];
-	const documents: string[] = [];
-	const metadatas: Metadata[] = [];
-
-	const timestamp = Date.now();
-	const prefix = options.idPrefix ?? options.source ?? "doc";
-
-	chunks.forEach((chunk, index) => {
-		const id = `${prefix}_${timestamp}_${index}`;
-		ids.push(id);
-		documents.push(chunk.trim());
-		
-		const metadata: Metadata = {
-			source: options.source ?? "",
-			chunkIndex: index,
-			totalChunks: chunks.length,
-		};
-		metadatas.push(metadata);
-	});
-
-	await collection.add({
-		ids,
-		documents,
-		metadatas,
-	});
-
-	return ids;
-}
+// Re-export addText from vector storage for backwards compatibility
+export { addText } from "../vector/storage";
 
 export interface SearchFilters {
 	repo?: string;

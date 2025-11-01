@@ -1,8 +1,9 @@
 import { getOctokit, type GitHubFile } from "./client";
 import { chunkByLanguage, detectLanguage } from "../chunkers";
-import { getDocumentsCollection } from "../db/collections";
+import { getDocumentsCollection } from "../vector/collections";
 import type { Collection } from "chromadb";
-import { upsertRepository, buildFileTree, markFileAsIndexed, updateRepositoryIndexingStatus } from "../db/postgres";
+import { upsertRepository, buildFileTree, markFileAsIndexed, updateRepositoryIndexingStatus } from "../db/queries";
+import { addGitHubChunks } from "../vector/storage";
 
 const BINARY_EXTENSIONS = new Set([
 	"png",
@@ -159,54 +160,21 @@ async function indexFile(
 			},
 		});
 
-		// Generate IDs and metadata
-		const ids: string[] = [];
-		const documents: string[] = [];
-		const metadatas: Record<string, string | number | boolean>[] = [];
-
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = chunks[i];
-			if (!chunk) continue;
-			
-			const id = `gh:${owner}/${repo}:${branch}:${fullPath}#L${chunk.startLine}-${chunk.endLine}:${sha}`;
-			ids.push(id);
-			documents.push(chunk.text);
-
-			// ChromaDB doesn't accept null values in metadata - use empty string instead
-			const metadata: Record<string, string | number | boolean> = {
-				repo: `${owner}/${repo}`,
+		// Add chunks using the reusable function
+		try {
+			const ids = await addGitHubChunks(collection, chunks, {
+				owner,
+				repo,
 				branch,
 				path: fullPath,
+				sha,
 				language,
-				blobSha: sha,
-				startLine: chunk.startLine,
-				endLine: chunk.endLine,
-				symbolName: chunk.metadata?.symbolName || "",
-				symbolKind: chunk.metadata?.symbolKind || "",
-				ingestedAt: Date.now(),
-			};
-			metadatas.push(metadata);
-		}
-
-		console.log(`[DEBUG] Adding ${ids.length} chunks for ${fullPath}`, {
-			file: fullPath,
-			chunks: ids.length,
-			firstChunkMetadata: metadatas[0],
-			metadataKeys: Object.keys(metadatas[0] || {}),
-		});
-
-		try {
-			await collection.add({ ids, documents, metadatas });
-			console.log(`[DEBUG] Successfully added chunks for ${fullPath}`);
+			});
+			console.log(`[DEBUG] Successfully added ${ids.length} chunks for ${fullPath}`);
 		} catch (addError) {
 			console.error(`[DEBUG] Failed to add chunks for ${fullPath}:`, {
 				error: addError instanceof Error ? addError.message : String(addError),
 				stack: addError instanceof Error ? addError.stack : undefined,
-				idsCount: ids.length,
-				documentsCount: documents.length,
-				metadatasCount: metadatas.length,
-				sampleMetadata: metadatas[0],
-				metadataTypes: metadatas[0] ? Object.entries(metadatas[0]).map(([k, v]) => [k, typeof v, v]) : [],
 			});
 			throw addError;
 		}
@@ -395,52 +363,21 @@ export async function deltaUpdate(
 					},
 				});
 
-				// Add new chunks
-				const ids: string[] = [];
-				const documents: string[] = [];
-				const metadatas: Record<string, string | number | boolean>[] = [];
-
-				for (let i = 0; i < chunks.length; i++) {
-					const chunk = chunks[i];
-					if (!chunk) continue;
-					
-					const id = `gh:${owner}/${repo}:${branch}:${file.filename}#L${chunk.startLine}-${chunk.endLine}:${sha}`;
-					ids.push(id);
-					documents.push(chunk.text);
-
-					// ChromaDB doesn't accept null values in metadata - use empty string instead
-					const metadata: Record<string, string | number | boolean> = {
-						repo: `${owner}/${repo}`,
+				// Add new chunks using the reusable function
+				try {
+					const ids = await addGitHubChunks(collection, chunks, {
+						owner,
+						repo,
 						branch,
 						path: file.filename,
+						sha,
 						language,
-						blobSha: sha,
-						startLine: chunk.startLine,
-						endLine: chunk.endLine,
-						symbolName: chunk.metadata?.symbolName || "",
-						symbolKind: chunk.metadata?.symbolKind || "",
-						ingestedAt: Date.now(),
-					};
-					metadatas.push(metadata);
-				}
-
-				console.log(`[DEBUG] Adding ${ids.length} chunks for ${file.filename}`, {
-					file: file.filename,
-					chunks: ids.length,
-					firstChunkMetadata: metadatas[0],
-				});
-
-				try {
-					await collection.add({ ids, documents, metadatas });
-					console.log(`[DEBUG] Successfully added chunks for ${file.filename}`);
+					});
+					console.log(`[DEBUG] Successfully added ${ids.length} chunks for ${file.filename}`);
 				} catch (addError) {
 					console.error(`[DEBUG] Failed to add chunks for ${file.filename}:`, {
-						error: addError,
-						idsCount: ids.length,
-						documentsCount: documents.length,
-						metadatasCount: metadatas.length,
-						sampleMetadata: metadatas[0],
-						metadataTypes: metadatas[0] ? Object.entries(metadatas[0]).map(([k, v]) => [k, typeof v, v]) : [],
+						error: addError instanceof Error ? addError.message : String(addError),
+						stack: addError instanceof Error ? addError.stack : undefined,
 					});
 					throw addError;
 				}

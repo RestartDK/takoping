@@ -9,3 +9,4 @@ export async function getDocumentsCollection() {
 	const embeddingFunction = getEmbedder();
 	return await chromaClient.getOrCreateCollection({ name: "documents", embeddingFunction });
 }
+
