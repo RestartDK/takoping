@@ -2,13 +2,31 @@ Todo:
   Backend:
     ✔ Set up Chromadb locally and seed a test collection @started(25-10-30 11:28) @done(25-10-30 11:28) @lasted(28s)
     ✔ Configure Ollama on LAN tower; document model selection and endpoints @done(25-10-30 11:35)
-    - Create Bun backend skeleton (HTTP + WebSocket) and .env config
-    - Implement GitHub API repo scan with auth, rate limit handling
+    ✔ Create Bun backend skeleton (HTTP + WebSocket) and .env config @started(25-10-30 14:44) @done(25-10-30 21:13) @lasted(6h29m29s)
+    ✔ Add embedding function for ollama in db client @done(25-10-30 21:13)
+    ✔ Make sure all rag works @done(25-10-30 21:13)
+    ✔ Create the plan to implement the generation approach of the diagrams for your app @done(25-11-01 13:05)
+    ✔ Decide on how to store your data, only use a vectordb or use like dynamodb as well (see if you can just use a normal db as well) @started(25-11-01 13:18) @done(25-11-01 13:36) @lasted(18m37s)
+    ✔ Integrate normal schemas from postgres with bun @started(25-11-01 13:37) @done(25-11-01 14:43) @lasted(1h6m54s)
+    ✔ Integrate pg with chromadb vector search @done(25-11-01 14:43)
+    - Test end to end with a simple fe with the backend, only care about diagrams all streaming and stuff come after
+    - Rename backend to server and frontend to client
+    - Fix all the type errors and stupid logic from the ai
+    - Make docker compose to run the app with pg db, chroma, be, and fe
+    - Figure out how to structure metadata to be able to reference code snippets, and files
+    - Create plan on how to generate the diagram for the whole repository (use github next example)
+    - Make the tools the llm can use during your conversation with it, so it can make a new diagram etc
+    - Try with normal rag to generate the diagrams, then experiment with agentic rag using this [framework](https://medium.com/@aydinKerem/ai-agents-design-patterns-explained-b3ac0433c915)
+    - Create the feature where you can generate a new diagram and have the option to save it
+    - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
+    - Expose API endpoints for tours, diagrams, and agent actions
+    - Attempt to deploy a llama reasoning model on aws
+    - Attempt to deploy a retrieval nim on aws
+    - Create custom implementation of retrieval nim for chromadb embeddings function
+    ✔ Implement GitHub API repo scan with auth, rate limit handling @done(25-11-01 13:08)
     - Build repo tree model and metrics (size, file count, recent changes)
     - Implement embedding pipeline and persist to Chromadb
     - Integrate Vercel AI SDK with provider env switch (Ollama local, NIM custom)
-    - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
-    - Expose API endpoints for tours, diagrams, and agent actions
 
   Frontend: 
     - Initialize project and UI kit (vite, shadcn setup, Jotai store)
