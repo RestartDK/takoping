@@ -1,5 +1,5 @@
 Todo:
-  Backend:
+  Server:
     ✔ Set up Chromadb locally and seed a test collection @started(25-10-30 11:28) @done(25-10-30 11:28) @lasted(28s)
     ✔ Configure Ollama on LAN tower; document model selection and endpoints @done(25-10-30 11:35)
     ✔ Create Bun backend skeleton (HTTP + WebSocket) and .env config @started(25-10-30 14:44) @done(25-10-30 21:13) @lasted(6h29m29s)
@@ -9,9 +9,11 @@ Todo:
     ✔ Decide on how to store your data, only use a vectordb or use like dynamodb as well (see if you can just use a normal db as well) @started(25-11-01 13:18) @done(25-11-01 13:36) @lasted(18m37s)
     ✔ Integrate normal schemas from postgres with bun @started(25-11-01 13:37) @done(25-11-01 14:43) @lasted(1h6m54s)
     ✔ Integrate pg with chromadb vector search @done(25-11-01 14:43)
-    - Test end to end with a simple fe with the backend, only care about diagrams all streaming and stuff come after
-    - Rename backend to server and frontend to client
-    - Fix all the type errors and stupid logic from the ai
+    ✔ Test end to end with a simple fe with the backend, only care about diagrams all streaming and stuff come after @done(25-11-01 15:08)
+    ✔ Rename backend to server and frontend to client @done(25-11-01 15:08)
+    - Fix all the type errors and stupid logic from the ai @started(25-11-01 15:08)
+    - Implement tool calls so that we can actually have a new diagram generated for the user, like the ai must determine when to do this action using a tool call and then make a new preset diagram
+    - Implement the option to see all your preset diagrams temp for the fe
     - Make docker compose to run the app with pg db, chroma, be, and fe
     - Figure out how to structure metadata to be able to reference code snippets, and files
     - Create plan on how to generate the diagram for the whole repository (use github next example)
@@ -28,7 +30,7 @@ Todo:
     - Implement embedding pipeline and persist to Chromadb
     - Integrate Vercel AI SDK with provider env switch (Ollama local, NIM custom)
 
-  Frontend: 
+  Client: 
     - Initialize project and UI kit (vite, shadcn setup, Jotai store)
     - Implement treemap canvas with LoD zoom thresholds
     - Add tooltips, right-click menu, selection/highlight overlays

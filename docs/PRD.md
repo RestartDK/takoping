@@ -112,7 +112,7 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 - **Local Development (Default):**
   - Vector DB: Chromadb running locally (Docker or native) with seed/test collections
   - LLM: Ollama on developer LAN tower for fast iteration; model selection via env (e.g., `OLLAMA_MODEL=llama3:8b`)
-  - Backend: Bun server with hot reload; `.env` controls local services
+  - Server: Bun server with hot reload; `.env` controls local services
   - Switching: Single env toggle (`AI_PROVIDER=ollama|nim`, `CHROMA_URL`, `LLM_BASE_URL`) to swap between local and AWS
 - **AWS (Staging/Prod):**
   - Vector DB: Chromadb on EC2 with EBS-backed storage (or managed alternative later)
@@ -123,8 +123,8 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 ### 5.4 Deployment Plan (High Level)
 
 - **Manual First:**
-  - Provision EC2 for Bun backend and Chromadb; deploy NIM endpoints on SageMaker
-  - Configure DNS/SSL; wire env variables to point frontend/backend to AWS services
+  - Provision EC2 for Bun server and Chromadb; deploy NIM endpoints on SageMaker
+  - Configure DNS/SSL; wire env variables to point client/server to AWS services
 - **Infrastructure as Code (Follow-up):**
   - Terraform modules for VPC, EC2, Security Groups, IAM roles/policies, SageMaker endpoints, and DNS records
   - Outputs expose service URLs; variables mirror local `.env` for easy switching
@@ -165,7 +165,7 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 
 ## 8. Technical Architecture
 
-### 8.1 Frontend
+### 8.1 Client
 
 - **Framework:** Vite with TypeScript
 - **Canvas Engine:** React flow
@@ -174,9 +174,9 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 - **Layout:** Two-panel layout (Visualizer, Code Viewer/Chat)
 - **Interactive Elements:** tooltips, name of repo on top left, zoom in and out button in bottom left
 
-### 8.2 Backend
+### 8.2 Server
 
-- **Bun backend:** Bun server (EC2)
+- **Bun server:** Bun server (EC2)
 - **AI model:** NVIDIA NIM microservice llama-3 1-nemotron-nano-8B-v1 large language reasoning mode as an endpoint (sagemaker)
 - **Embeddings model:** Retrieval embedding NIM as an endpoint (sagemaker)
 - **AI client SDK:** Vercel AI SDK for model/agent interactions (providers: Ollama local, custom NIM endpoint)
