@@ -1,5 +1,5 @@
 import { getOctokit, type GitHubFile } from "./client";
-import { chunkByLanguage, detectLanguage } from "../chunkers";
+import { chunkByLanguage, detectLanguage } from "../vector/chunkers";
 import { getDocumentsCollection } from "../vector/collections";
 import type { Collection } from "chromadb";
 import { upsertRepository, buildFileTree, markFileAsIndexed, updateRepositoryIndexingStatus } from "../db/queries";

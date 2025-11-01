@@ -1,14 +1,6 @@
 import type { Collection, Metadata } from "chromadb";
-import type { Chunk } from "../chunkers";
-
-// Chunking strategy
-// FIXME: Maybe remove this part here I already have /chunkers for this..?
-const generateChunks = (input: string): string[] => {
-	return input
-		.trim()
-		.split(".")
-		.filter((i) => i !== "");
-};
+import type { Chunk } from "./chunkers";
+import { chunkText } from "./chunkers";
 
 // Adding new data to vector db embeddings
 export async function addText(
@@ -19,7 +11,7 @@ export async function addText(
 		idPrefix?: string;
 	} = {}
 ): Promise<string[]> {
-	const chunks = generateChunks(text);
+	const chunks = chunkText(text);
 
 	if (chunks.length === 0) {
 		return [];
