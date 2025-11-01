@@ -29,6 +29,7 @@ export function chunkCode(
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
+		if (line === undefined) continue;
 		const isFunctionStart = funcPattern.test(line.trim());
 		const currentSize = currentChunk.join("\n").length;
 
@@ -60,15 +61,24 @@ export function chunkCode(
 		const shouldSplit = isCompleteFunction && currentSize >= options.targetSize * 0.7;
 
 		if (shouldSplit) {
-			chunks.push({
+			const firstLine = currentChunk[0];
+			const symbolName = firstLine ? extractSymbolName(firstLine, language) : undefined;
+			const symbolKind = firstLine ? extractSymbolKind(firstLine, language) : undefined;
+			
+			const chunk: Chunk = {
 				text: currentChunk.join("\n"),
 				startLine: currentStartLine,
 				endLine: i,
-				metadata: {
-					symbolName: extractSymbolName(currentChunk[0], language),
-					symbolKind: extractSymbolKind(currentChunk[0], language),
-				},
-			});
+			};
+			
+			// Only include metadata if at least one field is defined
+			if (symbolName !== undefined || symbolKind !== undefined) {
+				chunk.metadata = {};
+				if (symbolName !== undefined) chunk.metadata.symbolName = symbolName;
+				if (symbolKind !== undefined) chunk.metadata.symbolKind = symbolKind;
+			}
+			
+			chunks.push(chunk);
 
 			// Start new chunk with overlap
 			const overlapLines = Math.max(1, Math.floor(options.overlap / 50));
@@ -84,10 +94,12 @@ export function chunkCode(
 			// Split at a reasonable boundary (empty line, closing brace, etc.)
 			let splitIndex = currentChunk.length - 1;
 			for (let j = currentChunk.length - 1; j >= Math.floor(currentChunk.length / 2); j--) {
+				const line = currentChunk[j];
+				if (line === undefined) continue;
 				if (
-					currentChunk[j].trim() === "" ||
-					currentChunk[j].trim() === "}" ||
-					currentChunk[j].trim() === "};"
+					line.trim() === "" ||
+					line.trim() === "}" ||
+					line.trim() === "};"
 				) {
 					splitIndex = j;
 					break;
@@ -123,6 +135,8 @@ export function chunkCode(
 }
 
 function extractSymbolName(line: string, language: string): string | undefined {
+	if (!line) return undefined;
+	
 	const patterns: Record<string, RegExp> = {
 		typescript: /(?:function|const|let|var|class|interface|enum|type)\s+(\w+)/,
 		javascript: /(?:function|const|let|var|class|interface|enum)\s+(\w+)/,
@@ -138,6 +152,8 @@ function extractSymbolName(line: string, language: string): string | undefined {
 }
 
 function extractSymbolKind(line: string, language: string): string | undefined {
+	if (!line) return undefined;
+	
 	if (/^(export\s+)?(async\s+)?(function|const|let|var)\s+\w+/i.test(line)) return "function";
 	if (/^(export\s+)?(class|interface|enum|type)\s+\w+/i.test(line)) return "class";
 	if (/^(def|async\s+def)\s+\w+/i.test(line)) return "function";

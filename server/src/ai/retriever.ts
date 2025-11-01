@@ -1,6 +1,8 @@
-import type { Collection, Metadata } from "chromadb";
+import type { Collection, Metadata, Where } from "chromadb";
 import { env } from "../env";
 
+// Chunking strategy
+// FIXME: Maybe remove this part here I already have /chunkers for this..?
 const generateChunks = (input: string): string[] => {
 	return input
 		.trim()
@@ -8,6 +10,7 @@ const generateChunks = (input: string): string[] => {
 		.filter((i) => i !== "");
 };
 
+// Adding new data to vector db embeddings
 export async function addText(
 	collection: Collection,
 	text: string,
@@ -24,7 +27,7 @@ export async function addText(
 
 	const ids: string[] = [];
 	const documents: string[] = [];
-	const metadatas: Record<string, string | number | boolean | null>[] = [];
+	const metadatas: Metadata[] = [];
 
 	const timestamp = Date.now();
 	const prefix = options.idPrefix ?? options.source ?? "doc";
@@ -33,17 +36,19 @@ export async function addText(
 		const id = `${prefix}_${timestamp}_${index}`;
 		ids.push(id);
 		documents.push(chunk.trim());
-		// metadatas.push({
-		// 	source: options.source ?? null,
-		// 	chunkIndex: index,
-		// 	totalChunks: chunks.length,
-		// });
+		
+		const metadata: Metadata = {
+			source: options.source ?? "",
+			chunkIndex: index,
+			totalChunks: chunks.length,
+		};
+		metadatas.push(metadata);
 	});
 
 	await collection.add({
 		ids,
 		documents,
-		// metadatas,
+		metadatas,
 	});
 
 	return ids;
@@ -61,9 +66,9 @@ export async function searchByText(
 	topK = env.RETRIEVE_TOP_K,
 	filters?: SearchFilters
 ) {
-	let where: Record<string, unknown> | undefined;
+	let where: Where | undefined;
 	if (filters?.repo || filters?.path || filters?.language) {
-		const conditions: Record<string, string>[] = [];
+		const conditions: Where[] = [];
 		if (filters?.repo) {
 			conditions.push({ repo: filters.repo });
 		}

@@ -12,6 +12,7 @@ export function chunkMarkdown(
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
+		if (line === undefined) continue;
 		const isHeading = /^#{1,3}\s/.test(line);
 		const currentSize = currentChunk.join("\n").length;
 
@@ -36,10 +37,12 @@ export function chunkMarkdown(
 			// Split at paragraph boundary or code block
 			let splitIndex = currentChunk.length - 1;
 			for (let j = currentChunk.length - 1; j >= Math.floor(currentChunk.length / 2); j--) {
+				const chunkLine = currentChunk[j];
+				if (chunkLine === undefined) continue;
 				if (
-					currentChunk[j].trim() === "" ||
-					currentChunk[j].startsWith("```") ||
-					currentChunk[j].startsWith("---")
+					chunkLine.trim() === "" ||
+					chunkLine.startsWith("```") ||
+					chunkLine.startsWith("---")
 				) {
 					splitIndex = j;
 					break;

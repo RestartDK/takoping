@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset } from "../db/postgres";
 
+const SavePresetSchema = z.object({
+	owner: z.string().min(1, "owner is required"),
+	repo: z.string().min(1, "repo is required"),
+	name: z.string().min(1, "name is required"),
+	description: z.string().optional(),
+	type: z.string().min(1, "type is required"),
+	config: z.record(z.string(), z.unknown()),
+});
+
 export const getTreeRoute = async (req: Request) => {
 	const url = new URL(req.url);
 	const owner = url.searchParams.get("owner");
@@ -75,8 +84,30 @@ export const savePresetRoute = async (req: Request) => {
 		return new Response("Method Not Allowed", { status: 405 });
 	}
 
-	const data = await req.json();
-	const repo = await getRepository(`${data.owner}/${data.repo}`);
+	const contentType = req.headers.get("content-type") || "";
+	if (!contentType.includes("application/json")) {
+		return new Response(
+			JSON.stringify({ error: "Expected application/json" }),
+			{
+				status: 400,
+				headers: { "content-type": "application/json" },
+			}
+		);
+	}
+
+	const parsed = SavePresetSchema.safeParse(await req.json());
+	if (!parsed.success) {
+		return new Response(
+			JSON.stringify({
+				error: "Invalid payload",
+				details: z.treeifyError(parsed.error),
+			}),
+			{ status: 400, headers: { "content-type": "application/json" } }
+		);
+	}
+
+	const { owner, repo: repoName, name, description, type, config } = parsed.data;
+	const repo = await getRepository(`${owner}/${repoName}`);
 
 	if (!repo) {
 		return new Response(JSON.stringify({ error: "Repository not found" }), {
@@ -88,10 +119,10 @@ export const savePresetRoute = async (req: Request) => {
 	try {
 		const preset = await saveDiagramPreset({
 			repoId: repo.id,
-			name: data.name,
-			description: data.description,
-			type: data.type,
-			config: data.config,
+			name,
+			description,
+			type,
+			config,
 		});
 
 		return new Response(JSON.stringify({ preset }), {
