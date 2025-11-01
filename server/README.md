@@ -37,9 +37,9 @@ MAX_TOKENS=512
 
 Health: `GET /health`
 
-### RAG API
+### Chat API
 
-`POST /api/rag/query`
+`POST /api/chat/query`
 
 Body:
 
