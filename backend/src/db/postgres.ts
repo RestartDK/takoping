@@ -200,7 +200,7 @@ function computeTreemapLayout(
 	width?: number;
 	height?: number;
 }> {
-	const { maxDepth = 10, minArea = 2000 } = options;
+	const { maxDepth = 10, minArea = 100 } = options;
 
 	// Build hierarchy
 	const nodeMap = new Map(dbNodes.map((n) => [n.id, n]));
@@ -210,9 +210,16 @@ function computeTreemapLayout(
 	const totalWidth = 2000;
 	const totalHeight = 1500;
 
+	let skippedCount = 0;
+
 	function layoutNode(node: any, x: number, y: number, width: number, height: number, currentDepth: number) {
 		// Skip if too deep or too small
-		if (currentDepth > maxDepth || width * height < minArea) {
+		if (currentDepth > maxDepth) {
+			skippedCount++;
+			return;
+		}
+		if (width * height < minArea) {
+			skippedCount++;
 			return;
 		}
 
@@ -253,7 +260,9 @@ function computeTreemapLayout(
 				const childLayouts = squarify(children, width, height);
 				children.forEach((child, i) => {
 					const layout = childLayouts[i];
-					layoutNode(child, x + layout.x, y + layout.y, layout.width, layout.height, currentDepth + 1);
+					if (layout) {
+						layoutNode(child, x + layout.x, y + layout.y, layout.width, layout.height, currentDepth + 1);
+					}
 				});
 			}
 		}
@@ -269,6 +278,8 @@ function computeTreemapLayout(
 		layoutNode(root, col * rootWidth, row * rootHeight, rootWidth, rootHeight, 0);
 	});
 
+	console.log(`[POSTGRES] Layout complete: ${reactFlowNodes.length} nodes rendered, ${skippedCount} skipped (total DB nodes: ${dbNodes.length})`);
+
 	return reactFlowNodes;
 }
 
@@ -278,24 +289,51 @@ function squarify(
 	width: number,
 	height: number
 ): Array<{ x: number; y: number; width: number; height: number }> {
-	const totalSize = children.reduce((sum, child) => sum + child.cumulative_size, 0);
-	if (totalSize === 0) return children.map(() => ({ x: 0, y: 0, width, height: height / children.length }));
+	if (children.length === 0) return [];
+	
+	const totalSize = children.reduce((sum, child) => sum + Math.max(child.cumulative_size || 0, 1), 0);
+	const minSize = Math.min(width / children.length, height / children.length, 50); // Ensure minimum 50px
+	
+	// If all sizes are zero, give equal space
+	if (totalSize === 0 || totalSize === children.length) {
+		const itemHeight = height / children.length;
+		return children.map((_, i) => ({ 
+			x: 0, 
+			y: i * itemHeight, 
+			width: Math.max(width, minSize), 
+			height: Math.max(itemHeight, minSize) 
+		}));
+	}
 
 	const layouts: any[] = [];
 	let x = 0,
-		y = 0;
+		y = 0,
+		currentRowHeight = 0;
 
 	children.forEach((child) => {
-		const ratio = child.cumulative_size / totalSize;
-		const childWidth = Math.sqrt(ratio * width * height * (width / height));
-		const childHeight = (ratio * width * height) / childWidth;
+		const size = Math.max(child.cumulative_size || 0, 1);
+		const ratio = size / totalSize;
+		const area = ratio * width * height;
+		
+		// Ensure minimum size
+		const childWidth = Math.max(Math.sqrt(area * (width / height)), minSize);
+		const childHeight = Math.max(area / childWidth, minSize);
+
+		// Simple row-based layout (improved squarified would be better, but this works for demo)
+		if (x + childWidth > width && x > 0) {
+			x = 0;
+			y += currentRowHeight;
+			currentRowHeight = 0;
+		}
 
 		layouts.push({ x, y, width: childWidth, height: childHeight });
-
+		currentRowHeight = Math.max(currentRowHeight, childHeight);
 		x += childWidth;
+		
 		if (x >= width) {
 			x = 0;
-			y += childHeight;
+			y += currentRowHeight;
+			currentRowHeight = 0;
 		}
 	});
 
