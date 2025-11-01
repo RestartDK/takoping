@@ -6,44 +6,82 @@ import { initSchema } from "./src/db/postgres";
 // Initialize PostgreSQL schema
 await initSchema();
 
+const corsHeaders = {
+	"Access-Control-Allow-Origin": "*",
+	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+	"Access-Control-Allow-Headers": "Content-Type",
+};
+
+// Wrapper to add CORS headers to responses
+function withCors(handler: (req: Request) => Response | Promise<Response>) {
+	return async (req: Request) => {
+		// Handle preflight OPTIONS requests
+		if (req.method === "OPTIONS") {
+			return new Response(null, { status: 204, headers: corsHeaders });
+		}
+
+		const response = await handler(req);
+		
+		// Add CORS headers to response
+		const newHeaders = new Headers(response.headers);
+		Object.entries(corsHeaders).forEach(([key, value]) => {
+			newHeaders.set(key, value);
+		});
+
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: newHeaders,
+		});
+	};
+}
+
 Bun.serve({
 	port: process.env.PORT ? Number(process.env.PORT) : 3000,
 	routes: {
 		// Health check
-		"/health": new Response("ok"),
+		"/health": new Response("ok", { headers: corsHeaders }),
 
 		// RAG routes
 		"/api/rag/query": {
-			POST: ragRoute,
+			POST: withCors(ragRoute),
 		},
 		"/api/rag/add": {
-			POST: ragAddRoute,
+			POST: withCors(ragAddRoute),
 		},
 
 		// GitHub routes
 		"/api/github/ingest": {
-			POST: ingestRoute,
+			POST: withCors(ingestRoute),
 		},
 		"/api/github/ingest/status/:jobId": {
-			GET: (req) => ingestStatusRoute(req, { jobId: req.params.jobId }),
+			GET: withCors((req) => {
+				const url = new URL(req.url);
+				const jobId = url.pathname.split('/').pop() || '';
+				return ingestStatusRoute(req, { jobId });
+			}),
 		},
 		"/api/github/webhook": {
-			POST: webhookRoute,
+			POST: withCors(webhookRoute),
 		},
 
 		// Diagram routes
 		"/api/diagrams/tree": {
-			GET: getTreeRoute,
+			GET: withCors(getTreeRoute),
 		},
 		"/api/diagrams/presets": {
-			GET: getPresetsRoute,
+			GET: withCors(getPresetsRoute),
 		},
 		"/api/diagrams/preset": {
-			POST: savePresetRoute,
+			POST: withCors(savePresetRoute),
 		},
 	},
 	fetch(req) {
-		return new Response("Not Found", { status: 404 });
+		// Handle OPTIONS for unmatched routes
+		if (req.method === "OPTIONS") {
+			return new Response(null, { status: 204, headers: corsHeaders });
+		}
+		return new Response("Not Found", { status: 404, headers: corsHeaders });
 	},
 });
 
