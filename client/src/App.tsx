@@ -1,8 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { ReactFlow, applyNodeChanges, applyEdgeChanges, Background, Controls, MiniMap, type NodeChange, type EdgeChange, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
+import SidePanel from '@/components/SidePanel';
+import { PanelLeft } from 'lucide-react';
+import { config } from '@/config';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = config.apiBase;
 
 export default function App() {
   const [repoInput, setRepoInput] = useState('restartdk/leetcode-automation');
@@ -12,6 +19,10 @@ export default function App() {
   const [chatResponse, setChatResponse] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [owner, setOwner] = useState<string>('');
+  const [repo, setRepo] = useState<string>('');
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const sidePanelRef = useRef<ImperativePanelHandle>(null);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
@@ -47,16 +58,19 @@ export default function App() {
     setNodes([]);
     setEdges([]);
     
-    const [owner, repo] = repoInput.split('/');
-    if (!owner || !repo) {
+    const [ownerName, repoName] = repoInput.split('/');
+    if (!ownerName || !repoName) {
       setStatus('Invalid format. Use: owner/repo');
       setLoading(false);
       return;
     }
+    
+    setOwner(ownerName);
+    setRepo(repoName);
 
     try {
       // Try to fetch tree
-      let res = await fetch(`${API_BASE}/api/diagrams/tree?owner=${owner}&repo=${repo}`);
+      let res = await fetch(`${API_BASE}/api/diagrams/tree?owner=${ownerName}&repo=${repoName}`);
       
       // If 404, trigger ingestion
       if (res.status === 404) {
@@ -64,7 +78,7 @@ export default function App() {
         const ingestRes = await fetch(`${API_BASE}/api/github/ingest`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner, repo, branch: 'main' }),
+          body: JSON.stringify({ owner: ownerName, repo: repoName, branch: 'main' }),
         });
         const ingestData = await ingestRes.json();
         
@@ -76,7 +90,7 @@ export default function App() {
           }
           
           // Retry fetching tree
-          res = await fetch(`${API_BASE}/api/diagrams/tree?owner=${owner}&repo=${repo}`);
+          res = await fetch(`${API_BASE}/api/diagrams/tree?owner=${ownerName}&repo=${repoName}`);
         }
       }
 
@@ -122,7 +136,6 @@ export default function App() {
   };
 
   const savePreset = async () => {
-    const [owner, repo] = repoInput.split('/');
     if (!owner || !repo) return;
     
     setLoading(true);
@@ -152,71 +165,92 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="w-screen h-screen flex flex-col">
       {/* Top: Repo Input */}
-      <div style={{ padding: '10px', borderBottom: '1px solid #ccc', display: 'flex', gap: '10px' }}>
-        <input
+      <div className="p-2.5 flex gap-2.5 items-center border-b shrink-0">
+        <Input
           type="text"
           value={repoInput}
-          onChange={(e) => setRepoInput(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRepoInput(e.target.value)}
           placeholder="owner/repo"
-          style={{ flex: 1, padding: '8px' }}
-          onKeyPress={(e) => e.key === 'Enter' && loadRepo()}
+          className="flex-1"
+          onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && loadRepo()}
         />
-        <button onClick={loadRepo} disabled={loading} style={{ padding: '8px 16px' }}>
+        <Button onClick={loadRepo} disabled={loading}>
           Load Repo
-        </button>
-        <button onClick={savePreset} disabled={loading || nodes.length === 0} style={{ padding: '8px 16px' }}>
+        </Button>
+        <Button onClick={savePreset} disabled={loading || nodes.length === 0} variant="outline">
           Save Preset
-        </button>
-        <div style={{ padding: '8px', color: '#666', fontSize: '12px' }}>
+        </Button>
+        <div className="px-2 py-2 text-muted-foreground text-xs whitespace-nowrap">
           {status || 'Ready'}
         </div>
       </div>
 
-      {/* Middle: React Flow Canvas */}
-      <div style={{ flex: 1, position: 'relative' }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
-        >
-          <Background />
-          <Controls />
-          <MiniMap />
-        </ReactFlow>
-      </div>
-
-      {/* Bottom: Chat */}
-      <div style={{ padding: '10px', borderTop: '1px solid #ccc', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px' }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Ask about the codebase..."
-            style={{ flex: 1, padding: '8px' }}
-            onKeyPress={(e) => e.key === 'Enter' && sendChat()}
-          />
-          <button onClick={sendChat} disabled={loading} style={{ padding: '8px 16px' }}>
-            Send
-          </button>
-        </div>
-        {chatResponse && (
-          <div style={{ 
-            padding: '10px', 
-            background: '#f5f5f5', 
-            borderRadius: '4px', 
-            fontSize: '12px',
-            maxHeight: '100px',
-            overflow: 'auto'
-          }}>
-            {chatResponse}
+      {/* Main Content: React Flow Canvas + Side Panel */}
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
+        <ResizablePanel defaultSize={isPanelCollapsed ? 100 : 70} minSize={50}>
+          <div className="h-full relative">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              fitView
+            >
+              <Background />
+              <Controls />
+              <MiniMap />
+            </ReactFlow>
           </div>
+        </ResizablePanel>
+        {!isPanelCollapsed && (
+          <ResizableHandle 
+            withHandle 
+            className="group bg-transparent hover:bg-border transition-colors cursor-col-resize [&>div]:opacity-0 [&>div]:group-hover:opacity-100 [&>div]:transition-opacity"
+          />
         )}
-      </div>
+        {isPanelCollapsed ? (
+          <div className="border-l relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsPanelCollapsed(false);
+                // Restore panel size after a brief delay to ensure DOM is updated
+                setTimeout(() => {
+                  sidePanelRef.current?.resize(30);
+                }, 0);
+              }}
+              className="absolute top-2 right-2"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <ResizablePanel 
+            ref={sidePanelRef}
+            defaultSize={30} 
+            minSize={20}
+            collapsible={true}
+            onCollapse={() => setIsPanelCollapsed(true)}
+          >
+            <SidePanel
+              nodes={nodes}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              chatResponse={chatResponse}
+              onSendChat={sendChat}
+              loading={loading}
+              owner={owner}
+              repo={repo}
+              onCollapse={() => {
+                sidePanelRef.current?.collapse();
+              }}
+            />
+          </ResizablePanel>
+        )}
+      </ResizablePanelGroup>
     </div>
   );
 }
