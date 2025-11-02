@@ -9,10 +9,12 @@ await initSchema();
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-	"Access-Control-Allow-Headers": "Content-Type",
+	"Access-Control-Allow-Headers": "Content-Type, x-vercel-ai-data-stream, User-Agent",
+	"Access-Control-Expose-Headers": "x-vercel-ai-data-stream, x-vercel-ai-ui-message-stream",
 };
 
 // Wrapper to add CORS headers to responses
+// Properly handles streaming responses by adding headers without re-wrapping
 function withCors(handler: (req: Request) => Response | Promise<Response>) {
 	return async (req: Request) => {
 		// Handle preflight OPTIONS requests
@@ -22,17 +24,12 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 
 		const response = await handler(req);
 		
-		// Add CORS headers to response
-		const newHeaders = new Headers(response.headers);
+		// Add CORS headers to response (mutates existing headers)
 		Object.entries(corsHeaders).forEach(([key, value]) => {
-			newHeaders.set(key, value);
+			response.headers.set(key, value);
 		});
 
-		return new Response(response.body, {
-			status: response.status,
-			statusText: response.statusText,
-			headers: newHeaders,
-		});
+		return response;
 	};
 }
 

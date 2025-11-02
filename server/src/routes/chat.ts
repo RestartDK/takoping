@@ -2,11 +2,23 @@ import { env } from "../env";
 import { z } from "zod";
 import { formatContexts, searchByText, addText } from "../ai/retriever";
 import { buildPrompt } from "../ai/prompt";
-import { generateResponse } from "../ai/client";
+import { streamResponse } from "../ai/client";
 import { getDocumentsCollection } from "../vector/collections";
+import { convertToModelMessages, type UIMessage } from "ai";
 
-const QuerySchema = z.object({
-	query: z.string().min(1, "query is required"),
+const MessagesSchema = z.object({
+	messages: z.array(
+		z.object({
+			id: z.string().optional(),
+			role: z.enum(["user", "assistant", "system"]),
+			parts: z.array(
+				z.object({
+					type: z.string(),
+					text: z.string().optional(),
+				})
+			),
+		})
+	),
 });
 
 const AddSchema = z.object({
@@ -30,7 +42,7 @@ export const chatRoute = async (req: Request) => {
 		);
 	}
 
-	const parsed = QuerySchema.safeParse(await req.json());
+	const parsed = MessagesSchema.safeParse(await req.json());
 	if (!parsed.success) {
 		console.warn(
 			"/api/chat/query validation failed",
@@ -45,15 +57,40 @@ export const chatRoute = async (req: Request) => {
 		);
 	}
 
-	const { query } = parsed.data;
-	console.log("/api/chat/query received", { query, topK: env.RETRIEVE_TOP_K });
+	const { messages } = parsed.data;
+	console.log("/api/chat/query received", {
+		messageCount: messages.length,
+		topK: env.RETRIEVE_TOP_K,
+	});
 
 	try {
+		// Extract the latest user message for RAG retrieval
+		const latestUserMessage = messages
+			.filter((m) => m.role === "user")
+			.slice(-1)[0];
+		if (!latestUserMessage) {
+			return new Response(
+				JSON.stringify({ error: "No user message found" }),
+				{ status: 400, headers: { "content-type": "application/json" } }
+			);
+		}
+
+		// Extract text from the latest user message
+		const query = latestUserMessage.parts
+			.filter((p) => p.type === "text" && p.text)
+			.map((p) => p.text)
+			.join(" ");
+
+		if (!query.trim()) {
+			return new Response(
+				JSON.stringify({ error: "Query text is required" }),
+				{ status: 400, headers: { "content-type": "application/json" } }
+			);
+		}
+
+		// Perform RAG retrieval
 		const collection = await getDocumentsCollection();
 		console.log("Using collection", { name: "documents" });
-		// Get the k most similar results from the collection
-		// ChromaDB generates embeddings of the query text and performs cosine similarity search
-		// Returns the k most similar results
 		const results = await searchByText(query, collection, env.RETRIEVE_TOP_K);
 		console.log("Query results", {
 			ids: results.ids.length,
@@ -61,10 +98,10 @@ export const chatRoute = async (req: Request) => {
 			metadatas: results.metadatas.length,
 			distances: results.distances,
 		});
+
+		// Format context and build system prompt
 		const context = formatContexts(results);
-		const prompt = buildPrompt(query, context);
-		const { text } = await generateResponse(prompt);
-		console.log("Generated answer length", { length: text.length });
+		const systemPrompt = buildPrompt(query, context);
 
 		// Extract referenced nodes and create suggested actions
 		const referencedNodes: string[] = [];
@@ -82,7 +119,10 @@ export const chatRoute = async (req: Request) => {
 			const endLine = metadata?.endLine as number | undefined;
 
 			if (path && repo) {
-				const nodeId = startLine && endLine ? `${repo}:${path}#L${startLine}-${endLine}` : `${repo}:${path}`;
+				const nodeId =
+					startLine && endLine
+						? `${repo}:${path}#L${startLine}-${endLine}`
+						: `${repo}:${path}`;
 				referencedNodes.push(nodeId);
 
 				if (startLine && endLine) {
@@ -99,19 +139,20 @@ export const chatRoute = async (req: Request) => {
 			}
 		}
 
-		return new Response(
-			JSON.stringify({
-				answer: text,
-				sources: results,
-				referencedNodes,
-				suggestedActions,
-			}),
-			{
-				headers: { "content-type": "application/json" },
-			}
-		);
+		// Convert UIMessages to CoreMessages for the AI SDK
+		const coreMessages = convertToModelMessages(messages as UIMessage[]);
+
+		// Stream the response with RAG context
+		// The system prompt already includes the RAG context, so the AI will have
+		// access to relevant code snippets while generating the response
+		const result = await streamResponse(coreMessages, systemPrompt);
+
+		// Return the streaming response (includes x-vercel-ai-ui-message-stream header)
+		// Note: Source metadata (referencedNodes, suggestedActions) can be added
+		// via custom data parts in the future if needed
+		return result.toUIMessageStreamResponse();
 	} catch (err) {
-		console.error(err);
+		console.error("/api/chat/query failed", err);
 		return new Response(JSON.stringify({ error: "Internal Server Error" }), {
 			status: 500,
 			headers: { "content-type": "application/json" },
