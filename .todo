@@ -15,11 +15,20 @@ Todo:
     ✔ Fix all the type errors and stupid logic from the ai @started(25-11-01 15:08) @done(25-11-01 15:26) @lasted(18m31s)
     ✔ Review code from ai and understand deeply what was made, fixing any logic problems @started(25-11-01 15:26) @done(25-11-01 16:31) @lasted(1h5m3s)
     ✔ Fix consistency of chunking pattern @done(25-11-01 16:31)
-    - Fix type for the github api
-    - Fix return for github api to just be exported directly instead of called as a function @started(25-11-01 16:31)
+    ✔ Fix return for github api to just be exported directly instead of called as a function @started(25-11-01 16:31) @done(25-11-01 16:37) @lasted(6m30s)
+    ✔ Fix type for the github api @started(25-11-01 16:37) @done(25-11-01 16:44) @lasted(7m6s)
+    ✔ Fix the diagram from the backend to have files connected to each other to show relationship between files @started(25-11-02 12:39) @done(25-11-02 13:30) @lasted(51m28s)
+    ✔ Fix zooming and zoom out ui @started(25-11-02 13:30) @done(25-11-02 13:50) @lasted(20m41s)
+    ✔ Fix collapsible sidebar @started(25-11-02 14:58) @done(25-11-02 15:18) @lasted(20m10s)
+    ✔ Fix showing file content on the frontend @done(25-11-02 15:29)
+    ✔ Make a .env for the api url, should not hardcode api url @done(25-11-02 15:34)
+    - Code cleaning @started(25-11-02 15:40)
+    - Refactor to make custom hooks if needed
+    - Fix context utilisation with prompts from project to make sure it only talks about the project you are currently on
     - Implement tool calls so that we can actually have a new diagram generated for the user, like the ai must determine when to do this action using a tool call and then make a new preset diagram
     - Implement better prompts throughout for citing and actually using tools
     - Create the feature where you can generate a new diagram and have the option to save it
+    - Fix metadata for repositories to include description and stars
     - Add chat history
     - Define agent tool schema (focusNode, expandPath, openFileRange, createTour)
     - Try with normal rag to generate the diagrams, then experiment with agentic rag using this [framework](https://medium.com/@aydinKerem/ai-agents-design-patterns-explained-b3ac0433c915)
@@ -32,11 +41,11 @@ Todo:
     ✔ Implement GitHub API repo scan with auth, rate limit handling @done(25-11-01 13:08)
 
   Client: 
-    - Initialize project and UI kit (vite, shadcn setup, Jotai store)
-    - Implement treemap canvas with LoD zoom thresholds
+    ✔ Initialize project and UI kit (vite, shadcn setup, Jotai store) @done(25-11-02 14:12)
+    ✔ Implement treemap canvas with LoD zoom thresholds @done(25-11-02 14:12)
+    ✔ Implement code viewer with file range highlighting and tabs @done(25-11-02 15:34)
     - Add tooltips, right-click menu, selection/highlight overlays
     - Build chat panel with "Take me there" executing agent tool calls
-    - Implement code viewer with file range highlighting and tabs
     - Persist diagram tabs/presets (filters, weighting)
 
   Deployment:
