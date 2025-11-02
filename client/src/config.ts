@@ -4,11 +4,10 @@
  */
 
 export const config = {
-  /**
-   * API Base URL
-   * Set via VITE_API_BASE environment variable
-   * Falls back to http://localhost:3000 for local development
-   */
-  apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:3000',
+	/**
+	 * API Base URL
+	 * Set via VITE_API_BASE environment variable
+	 * Falls back to http://localhost:3000 for local development
+	 */
+	apiBase: import.meta.env.VITE_API_BASE || "http://localhost:3000",
 } as const;
-
