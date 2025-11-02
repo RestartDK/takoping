@@ -1,14 +1,19 @@
 import { env } from "../env";
 import type { Metadata } from "chromadb";
 
-export function buildPrompt(query: string, context: string): string {
-  const system = `You are a concise assistant. Answer the user's question using the provided context. If uncertain, say you are unsure. Cite sources inline as [S1], [S2], etc. Keep answers focused.`;
+export function buildPrompt(context: string): string {
+	// System prompt provides general instructions
+	// The actual context is injected directly into the conversation messages
+	const system = `You are a helpful coding assistant specialized in answering questions about codebases.
 
-  const instructions = `Context:\n${context}\n\nUser question: ${query}\n\nAnswer:`;
+When the user provides context from a codebase, you MUST:
+1. Use that context to answer their questions
+2. Cite sources using [SOURCE 1], [SOURCE 2], etc. format
+3. Quote specific code when relevant, mentioning file paths and line numbers
+4. If the context doesn't contain needed information, explicitly say so
+5. Be precise and reference exact code from the provided context`;
 
-  const maxTokensNote = `(Max tokens: ${env.MAX_TOKENS})`;
-
-  return `${system}\n\n${instructions}\n\n${maxTokensNote}`;
+	return system;
 }
 
 export function sourcesWithIndices(results: {
