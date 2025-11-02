@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { ingestRepository, getIngestJob, deltaUpdate } from "../github/ingest";
+import { fetchFileContent } from "../github/ingest";
 import { octokit } from "../github/client";
 import { getDocumentsCollection } from "../vector/collections";
+import { getRepository } from "../db/queries";
 
 const IngestSchema = z.object({
 	owner: z.string().min(1, "owner is required"),
@@ -151,6 +153,49 @@ export const webhookRoute = async (req: Request) => {
 			status: 500,
 			headers: { "content-type": "application/json" },
 		});
+	}
+};
+
+export const getFileContentRoute = async (req: Request) => {
+	if (req.method !== "GET") return new Response("Method Not Allowed", { status: 405 });
+
+	const url = new URL(req.url);
+	const owner = url.searchParams.get("owner");
+	const repo = url.searchParams.get("repo");
+	const path = url.searchParams.get("path");
+
+	if (!owner || !repo || !path) {
+		return new Response(
+			JSON.stringify({ error: "owner, repo, and path are required" }),
+			{ status: 400, headers: { "content-type": "application/json" } }
+		);
+	}
+
+	try {
+		// Get repository to find default branch
+		const repository = await getRepository(`${owner}/${repo}`);
+		if (!repository) {
+			return new Response(JSON.stringify({ error: "Repository not found" }), {
+				status: 404,
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		const branch = repository.default_branch || "main";
+		const { content } = await fetchFileContent(octokit, owner, repo, path, branch);
+
+		return new Response(JSON.stringify({ content }), {
+			headers: { "content-type": "application/json" },
+		});
+	} catch (error) {
+		console.error("/api/github/file failed", error);
+		return new Response(
+			JSON.stringify({
+				error: "Internal Server Error",
+				message: error instanceof Error ? error.message : String(error),
+			}),
+			{ status: 500, headers: { "content-type": "application/json" } }
+		);
 	}
 };
 

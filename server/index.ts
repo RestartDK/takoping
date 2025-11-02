@@ -1,5 +1,5 @@
 import { chatRoute, chatAddRoute } from "./src/routes/chat";
-import { ingestRoute, ingestStatusRoute, webhookRoute } from "./src/routes/github";
+import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "./src/routes/github";
 import { getTreeRoute, getPresetsRoute, savePresetRoute } from "./src/routes/diagrams";
 import { initSchema } from "./src/db/client";
 
@@ -63,6 +63,9 @@ Bun.serve({
 		},
 		"/api/github/webhook": {
 			POST: withCors(webhookRoute),
+		},
+		"/api/github/file": {
+			GET: withCors(getFileContentRoute),
 		},
 
 		// Diagram routes
