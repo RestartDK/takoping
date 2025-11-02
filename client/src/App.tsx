@@ -48,7 +48,12 @@ export default function App() {
 		setNodes,
 		setEdges,
 	} = useDiagram();
-	const { response: chatResponse, loading: chatLoading, sendQuery } = useChat();
+	const {
+		messages,
+		isLoading: chatLoading,
+		sendMessage,
+		clearHistory,
+	} = useChat({ owner, repo });
 
 	const loading = repoLoading || diagramLoading || chatLoading;
 	const status = repoStatus || "Ready";
@@ -89,9 +94,10 @@ export default function App() {
 	}, [repoInput, loadRepository, loadDiagram, setRepoStatus]);
 
 	const sendChat = useCallback(() => {
-		sendQuery(chatInput);
+		if (!chatInput.trim()) return;
+		sendMessage({ text: chatInput });
 		setChatInput("");
-	}, [chatInput, sendQuery]);
+	}, [chatInput, sendMessage]);
 
 	const handleSavePreset = useCallback(async () => {
 		if (!owner || !repo) return;
@@ -190,9 +196,10 @@ export default function App() {
 							nodes={nodes}
 							chatInput={chatInput}
 							setChatInput={setChatInput}
-							chatResponse={chatResponse}
+							messages={messages}
 							onSendChat={sendChat}
-							loading={loading}
+							onClearHistory={clearHistory}
+							loading={chatLoading}
 							owner={owner}
 							repo={repo}
 							onCollapse={() => {

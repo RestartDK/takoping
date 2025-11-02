@@ -1,64 +1,87 @@
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useChat as useAIChat, type UIMessage } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { config } from "@/config";
+import {
+	saveChatHistory,
+	loadChatHistory,
+	clearChatHistory,
+} from "@/lib/chatHistory";
 
 const API_BASE = config.apiBase;
 
-interface ChatResponse {
-	answer?: string;
-	error?: string;
-	sources?: {
-		documents?: unknown[];
-	};
+interface UseChatOptions {
+	owner?: string;
+	repo?: string;
 }
 
 interface UseChatReturn {
-	response: string;
-	loading: boolean;
-	sourceCount: number;
-	sendQuery: (query: string) => Promise<void>;
-	setResponse: (response: string) => void;
-	reset: () => void;
+	messages: UIMessage[];
+	isLoading: boolean;
+	sendMessage: (input: { text: string }) => void;
+	clearHistory: () => void;
 }
 
-export function useChat(): UseChatReturn {
-	const [response, setResponse] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [sourceCount, setSourceCount] = useState(0);
+export function useChat(options?: UseChatOptions): UseChatReturn {
+	const { owner, repo } = options || {};
+	const initialLoadRef = useRef(false);
+	const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
 
-	const sendQuery = useCallback(async (query: string): Promise<void> => {
-		if (!query.trim()) return;
+	const {
+		messages,
+		sendMessage: aiSendMessage,
+		status,
+		setMessages,
+	} = useAIChat({
+		messages: initialMessages,
+		transport: new DefaultChatTransport({
+			api: `${API_BASE}/api/chat/query`,
+		}),
+	});
 
-		setLoading(true);
-
-		try {
-			const res = await fetch(`${API_BASE}/api/chat/query`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ query }),
-			});
-
-			const data: ChatResponse = await res.json();
-			setResponse(data.answer || data.error || "No response");
-			setSourceCount(data.sources?.documents?.length || 0);
-		} catch (err) {
-			setResponse(`Error: ${err instanceof Error ? err.message : String(err)}`);
-			setSourceCount(0);
-		} finally {
-			setLoading(false);
+	// Load chat history when owner/repo changes
+	useEffect(() => {
+		if (owner && repo && !initialLoadRef.current) {
+			const history = loadChatHistory(owner, repo);
+			if (history.length > 0) {
+				setInitialMessages(history);
+				setMessages(history);
+			}
+			initialLoadRef.current = true;
+		} else if (!owner || !repo) {
+			// Clear messages when no repo is selected
+			setInitialMessages([]);
+			setMessages([]);
+			initialLoadRef.current = false;
 		}
-	}, []);
+	}, [owner, repo, setMessages]);
 
-	const reset = useCallback(() => {
-		setResponse("");
-		setSourceCount(0);
-	}, []);
+	// Save history whenever messages change (except during initial load)
+	useEffect(() => {
+		if (owner && repo && initialLoadRef.current && messages.length > 0) {
+			saveChatHistory(owner, repo, messages);
+		}
+	}, [messages, owner, repo]);
+
+	const sendMessage = (input: { text: string }) => {
+		aiSendMessage({ text: input.text });
+	};
+
+	const clearHistory = () => {
+		if (owner && repo) {
+			clearChatHistory(owner, repo);
+			setInitialMessages([]);
+			setMessages([]);
+		}
+	};
+
+	// Determine loading state from status
+	const isLoading = status === "submitted" || status === "streaming";
 
 	return {
-		response,
-		loading,
-		sourceCount,
-		sendQuery,
-		setResponse,
-		reset,
+		messages,
+		isLoading,
+		sendMessage,
+		clearHistory,
 	};
 }
