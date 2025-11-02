@@ -25,20 +25,20 @@ export const getTreeRoute = async (req: Request) => {
 
 	try {
 		const ownerRepo = `${owner}/${repo}`;
-		const reactFlowNodes = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
+		const layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
 
-		if (!reactFlowNodes) {
+		if (!layoutResult) {
 			return new Response(JSON.stringify({ error: "Repository not found" }), {
 				status: 404,
 				headers: { "content-type": "application/json" },
 			});
 		}
 
-		// Return React Flow compatible format
+		// Return React Flow compatible format with nodes and edges
 		return new Response(
 			JSON.stringify({
-				nodes: reactFlowNodes,
-				edges: [], // No edges for treemap visualization
+				nodes: layoutResult.nodes,
+				edges: layoutResult.edges,
 			}),
 			{
 				headers: { "content-type": "application/json" },

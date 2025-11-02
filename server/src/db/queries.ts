@@ -1,5 +1,40 @@
 import { pg } from "./client";
 
+// React Flow-compatible types (no React dependency needed)
+export interface ReactFlowNodeData {
+	label: string;
+	path: string;
+	size: number | null;
+	cumulativeSize: number | null;
+	fileCount: number | null;
+	language: string | null;
+	extension: string | null;
+	hasChunks: boolean | null;
+	chunkCount: number | null;
+}
+
+export interface ReactFlowNode {
+	id: string;
+	type?: string;
+	position: { x: number; y: number };
+	data: ReactFlowNodeData;
+	style?: {
+		width?: string;
+		height?: string;
+		backgroundColor?: string;
+		[key: string]: string | number | undefined;
+	};
+	width?: number;
+	height?: number;
+}
+
+export interface ReactFlowEdge {
+	id: string;
+	source: string;
+	target: string;
+	type?: string;
+}
+
 // Repository operations
 export async function upsertRepository(data: {
 	owner: string;
@@ -152,7 +187,10 @@ export async function getFileTreeForReactFlow(
 		maxDepth?: number;
 		minArea?: number;
 	}
-) {
+): Promise<{
+	nodes: ReactFlowNode[];
+	edges: ReactFlowEdge[];
+} | null> {
 	const repo = await getRepository(ownerRepo);
 	if (!repo) return null;
 
@@ -163,53 +201,85 @@ export async function getFileTreeForReactFlow(
   `;
 
 	// Compute treemap layout
-	const reactFlowNodes = computeTreemapLayout(nodes, options);
+	const layoutResult = computeTreemapLayout(nodes, options);
 
-	return reactFlowNodes;
+	return layoutResult;
 }
 
-// Treemap layout algorithm (squarified)
+// Sugiyama hierarchical layout algorithm
 function computeTreemapLayout(
 	dbNodes: any[],
 	options: { maxDepth?: number; minArea?: number } = {}
-): Array<{
-	id: string;
-	type: string;
-	position: { x: number; y: number };
-	data: any;
-	style?: any;
-	parentNode?: string;
-	extent?: "parent";
-	width?: number;
-	height?: number;
-}> {
-	const { maxDepth = 10, minArea = 100 } = options;
+): {
+	nodes: ReactFlowNode[];
+	edges: ReactFlowEdge[];
+} {
+	const { maxDepth = 10 } = options;
 
-	// Build hierarchy
-	const nodeMap = new Map(dbNodes.map((n) => [n.id, n]));
-	const roots = dbNodes.filter((n) => !n.parent_node);
-
-	const reactFlowNodes: any[] = [];
-	const totalWidth = 2000;
-	const totalHeight = 1500;
-
-	let skippedCount = 0;
-
-	function layoutNode(node: any, x: number, y: number, width: number, height: number, currentDepth: number) {
-		// Skip if too deep or too small
-		if (currentDepth > maxDepth) {
-			skippedCount++;
-			return;
+	// Filter nodes by maxDepth
+	const filteredNodes = dbNodes.filter((n) => (n.depth || 0) <= maxDepth);
+	
+	// Group nodes by depth (layers)
+	const layers = new Map<number, any[]>();
+	for (const node of filteredNodes) {
+		const depth = node.depth || 0;
+		if (!layers.has(depth)) {
+			layers.set(depth, []);
 		}
-		if (width * height < minArea) {
-			skippedCount++;
-			return;
-		}
+		layers.get(depth)!.push(node);
+	}
 
-		const rfNode = {
+	const reactFlowNodes: ReactFlowNode[] = [];
+	const reactFlowEdges: ReactFlowEdge[] = [];
+
+	// Layout constants
+	const layerHeight = 150; // Vertical spacing between layers
+	const nodeWidth = 120; // Fixed width for all nodes
+	const nodeHeight = 60; // Fixed height for all nodes
+	const horizontalSpacing = 20; // Horizontal spacing between nodes
+	const verticalOffset = 100; // Top margin
+
+	// Calculate max width needed for each layer (all nodes same size)
+	const layerWidths = new Map<number, number>();
+	for (const [depth, layerNodes] of layers) {
+		const totalWidth = layerNodes.length * (nodeWidth + horizontalSpacing);
+		layerWidths.set(depth, totalWidth);
+	}
+
+	const maxLayerWidth = Math.max(...Array.from(layerWidths.values()), 2000);
+	const startX = 100; // Left margin
+
+	// Position nodes in layers (Sugiyama style)
+	const nodePositions = new Map<string, { x: number; y: number; width: number; height: number }>();
+
+	for (const [depth, layerNodes] of layers) {
+		// Sort nodes by path for consistent ordering
+		layerNodes.sort((a, b) => a.path.localeCompare(b.path));
+
+		const layerY = depth * layerHeight + verticalOffset;
+		let currentX = startX + (maxLayerWidth - (layerWidths.get(depth) || 0)) / 2; // Center the layer
+
+		for (const node of layerNodes) {
+			nodePositions.set(node.id, {
+				x: currentX,
+				y: layerY,
+				width: nodeWidth,
+				height: nodeHeight,
+			});
+
+			currentX += nodeWidth + horizontalSpacing;
+		}
+	}
+
+	// Create React Flow nodes
+	for (const node of filteredNodes) {
+		const pos = nodePositions.get(node.id);
+		if (!pos) continue;
+
+		const rfNode: ReactFlowNode = {
 			id: node.id,
 			type: node.node_type,
-			position: { x, y },
+			position: { x: pos.x, y: pos.y },
 			data: {
 				label: node.name,
 				path: node.path,
@@ -222,106 +292,36 @@ function computeTreemapLayout(
 				chunkCount: node.chunk_count,
 			},
 			style: {
-				width: `${width}px`,
-				height: `${height}px`,
+				width: `${pos.width}px`,
+				height: `${pos.height}px`,
 				backgroundColor: getColorForNode(node),
 			},
-			...(node.parent_node
-				? {
-						parentNode: node.parent_node,
-						extent: "parent" as const,
-					}
-				: {}),
 		};
 
 		reactFlowNodes.push(rfNode);
+	}
 
-		// Layout children if directory
-		if (node.node_type === "directory") {
-			const children = dbNodes.filter((n) => n.parent_node === node.id);
-			if (children.length > 0) {
-				const childLayouts = squarify(children, width, height);
-				children.forEach((child, i) => {
-					const layout = childLayouts[i];
-					if (layout) {
-						layoutNode(child, x + layout.x, y + layout.y, layout.width, layout.height, currentDepth + 1);
-					}
-				});
-			}
+	// Create edges (parent to child)
+	for (const node of filteredNodes) {
+		if (node.parent_node && nodePositions.has(node.parent_node) && nodePositions.has(node.id)) {
+			const edge: ReactFlowEdge = {
+				id: `${node.parent_node}-${node.id}`,
+				source: node.parent_node,
+				target: node.id,
+				type: "smoothstep",
+			};
+			reactFlowEdges.push(edge);
 		}
 	}
 
-	// Layout roots
-	roots.forEach((root, i) => {
-		const rootWidth = totalWidth / Math.ceil(Math.sqrt(roots.length));
-		const rootHeight = totalHeight / Math.ceil(Math.sqrt(roots.length));
-		const col = i % Math.ceil(Math.sqrt(roots.length));
-		const row = Math.floor(i / Math.ceil(Math.sqrt(roots.length)));
+	console.log(`[POSTGRES] Sugiyama layout complete: ${reactFlowNodes.length} nodes rendered, ${reactFlowEdges.length} edges created (total DB nodes: ${dbNodes.length})`);
 
-		layoutNode(root, col * rootWidth, row * rootHeight, rootWidth, rootHeight, 0);
-	});
-
-	console.log(`[POSTGRES] Layout complete: ${reactFlowNodes.length} nodes rendered, ${skippedCount} skipped (total DB nodes: ${dbNodes.length})`);
-
-	return reactFlowNodes;
+	return {
+		nodes: reactFlowNodes,
+		edges: reactFlowEdges,
+	};
 }
 
-// Squarified treemap helper
-function squarify(
-	children: any[],
-	width: number,
-	height: number
-): Array<{ x: number; y: number; width: number; height: number }> {
-	if (children.length === 0) return [];
-	
-	const totalSize = children.reduce((sum, child) => sum + Math.max(child.cumulative_size || 0, 1), 0);
-	const minSize = Math.min(width / children.length, height / children.length, 50); // Ensure minimum 50px
-	
-	// If all sizes are zero, give equal space
-	if (totalSize === 0 || totalSize === children.length) {
-		const itemHeight = height / children.length;
-		return children.map((_, i) => ({ 
-			x: 0, 
-			y: i * itemHeight, 
-			width: Math.max(width, minSize), 
-			height: Math.max(itemHeight, minSize) 
-		}));
-	}
-
-	const layouts: any[] = [];
-	let x = 0,
-		y = 0,
-		currentRowHeight = 0;
-
-	children.forEach((child) => {
-		const size = Math.max(child.cumulative_size || 0, 1);
-		const ratio = size / totalSize;
-		const area = ratio * width * height;
-		
-		// Ensure minimum size
-		const childWidth = Math.max(Math.sqrt(area * (width / height)), minSize);
-		const childHeight = Math.max(area / childWidth, minSize);
-
-		// Simple row-based layout (improved squarified would be better, but this works for demo)
-		if (x + childWidth > width && x > 0) {
-			x = 0;
-			y += currentRowHeight;
-			currentRowHeight = 0;
-		}
-
-		layouts.push({ x, y, width: childWidth, height: childHeight });
-		currentRowHeight = Math.max(currentRowHeight, childHeight);
-		x += childWidth;
-		
-		if (x >= width) {
-			x = 0;
-			y += currentRowHeight;
-			currentRowHeight = 0;
-		}
-	});
-
-	return layouts;
-}
 
 function getColorForNode(node: any): string {
 	// Color by language/type
