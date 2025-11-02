@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { Node, Edge } from "@xyflow/react";
+import type { FileNode, Edge } from "@/types/reactflow";
 import { config } from "@/config";
 
 const API_BASE = config.apiBase;
 
 interface UseDiagramReturn {
-	nodes: Node[];
+	nodes: FileNode[];
 	edges: Edge[];
 	loading: boolean;
 	loadDiagram: (
@@ -19,13 +19,13 @@ interface UseDiagramReturn {
 		name?: string,
 		description?: string
 	) => Promise<void>;
-	setNodes: Dispatch<SetStateAction<Node[]>>;
+	setNodes: Dispatch<SetStateAction<FileNode[]>>;
 	setEdges: Dispatch<SetStateAction<Edge[]>>;
 	reset: () => void;
 }
 
 export function useDiagram(): UseDiagramReturn {
-	const [nodes, setNodes] = useState<Node[]>([]);
+	const [nodes, setNodes] = useState<FileNode[]>([]);
 	const [edges, setEdges] = useState<Edge[]>([]);
 	const [loading, setLoading] = useState(false);
 

@@ -23,6 +23,7 @@ import { PanelLeft } from "lucide-react";
 import { useRepository } from "@/hooks/useRepository";
 import { useDiagram } from "@/hooks/useDiagram";
 import { useChat } from "@/hooks/useChat";
+import type { FileNode } from "@/types/reactflow";
 
 export default function App() {
 	const [repoInput, setRepoInput] = useState("");
@@ -54,7 +55,9 @@ export default function App() {
 
 	const onNodesChange = useCallback(
 		(changes: NodeChange[]) =>
-			setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
+			setNodes((nodesSnapshot) =>
+				applyNodeChanges(changes, nodesSnapshot) as FileNode[]
+			),
 		[setNodes]
 	);
 	const onEdgesChange = useCallback(

@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactElement, Fragment } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Node } from '@xyflow/react';
+import type { FileNode } from '@/types/reactflow';
 
 interface FileTreeProps {
-  nodes: Node[];
+  nodes: FileNode[];
   onFileSelect: (path: string | null) => void;
   selectedFile: string | null;
 }
@@ -46,14 +46,12 @@ export default function FileTree({ nodes, onFileSelect, selectedFile }: FileTree
     nodes.forEach((node) => {
       const path = node.data.path;
       const parts = path.split('/');
-      const nodeType = actualNodeTypes.get(path);
 
       let currentPath = '';
       let parent = root;
 
-      parts.forEach((part, index) => {
+      parts.forEach((part: string) => {
         currentPath = currentPath ? `${currentPath}/${part}` : part;
-        const isLast = index === parts.length - 1;
 
         if (!pathMap.has(currentPath)) {
           // If this is an actual node path, use its type; otherwise it's a directory (intermediate)
@@ -108,10 +106,14 @@ export default function FileTree({ nodes, onFileSelect, selectedFile }: FileTree
     setExpandedPaths(newExpanded);
   };
 
-  const renderNode = (node: TreeNode, depth: number = 0) => {
+  const renderNode = (node: TreeNode, depth: number = 0): ReactElement | ReactElement[] => {
     if (!node.name) {
       // Render root children
-      return node.children.map((child) => renderNode(child, 0));
+      return (
+        <Fragment key="root-children">
+          {node.children.map((child) => renderNode(child, 0))}
+        </Fragment>
+      );
     }
 
     const isExpanded = expandedPaths.has(node.path);

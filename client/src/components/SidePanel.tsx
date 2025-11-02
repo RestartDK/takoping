@@ -6,13 +6,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useState } from 'react';
-import type { Node } from '@xyflow/react';
+import type { FileNode } from '@/types/reactflow';
 import FileTree from './FileTree';
 import FileViewer from './FileViewer';
 import PresetsList from './PresetsList';
 
 interface SidePanelProps {
-  nodes: Node[];
+  nodes: FileNode[];
   chatInput: string;
   setChatInput: (value: string) => void;
   chatResponse: string;
