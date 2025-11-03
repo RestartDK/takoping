@@ -1,9 +1,9 @@
-import { streamText, type CoreMessage } from "ai";
+import { streamText, type ModelMessage } from "ai";
 import { createOllama } from "ai-sdk-ollama";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "../env";
 
-export async function streamResponse(messages: CoreMessage[], system?: string) {
+export async function streamResponse(messages: ModelMessage[], system?: string) {
 	if (env.AI_PROVIDER === "ollama") {
 		const ollama = createOllama({ baseURL: env.OLLAMA_BASE_URL });
 		if (!env.OLLAMA_REASONING_MODEL)

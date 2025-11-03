@@ -2,9 +2,9 @@ import { env } from "../env";
 import { z } from "zod";
 import { formatContexts, searchByText, addText, type SearchFilters } from "../ai/retriever";
 import { buildPrompt } from "../ai/prompt";
-import { streamResponse } from "../ai/client";
+import { streamResponseWithTools } from "../ai/agent";
 import { getDocumentsCollection } from "../vector/collections";
-import { convertToModelMessages, type UIMessage, type CoreMessage, type ModelMessage } from "ai";
+import type { UIMessage } from "ai";
 
 const MessagesSchema = z.object({
 	messages: z.array(
@@ -21,6 +21,7 @@ const MessagesSchema = z.object({
 	),
 	owner: z.string().min(1, "owner is required"),
 	repo: z.string().min(1, "repo is required"),
+	activeDiagramId: z.string().min(1, "activeDiagramId is required"),
 });
 
 const AddSchema = z.object({
@@ -59,12 +60,13 @@ export const chatRoute = async (req: Request) => {
 		);
 	}
 
-	const { messages, owner, repo } = parsed.data;
+	const { messages, owner, repo, activeDiagramId } = parsed.data;
 	console.log("/api/chat/query received", {
 		messageCount: messages.length,
 		topK: env.RETRIEVE_TOP_K,
 		owner,
 		repo,
+		activeDiagramId,
 	});
 
 	try {
@@ -180,19 +182,6 @@ export const chatRoute = async (req: Request) => {
 			return JSON.stringify(content);
 		};
 
-		// Convert UIMessages to CoreMessages for the AI SDK
-		const coreMessages = convertToModelMessages(messages as UIMessage[]);
-		
-		// Normalize message content to ensure all messages have string content
-		// Create ModelMessages with string content
-		const normalizedMessages: ModelMessage[] = coreMessages.map((msg) => {
-			const textContent = extractTextFromContent(msg.content);
-			return {
-				role: msg.role,
-				content: textContent,
-			} as ModelMessage;
-		});
-		
 		// Log original messages received from client
 		console.log("=== ORIGINAL MESSAGES FROM CLIENT ===");
 		console.log(`Total messages: ${messages.length}`);
@@ -208,41 +197,53 @@ export const chatRoute = async (req: Request) => {
 			});
 		});
 		
-		// Log converted and normalized messages (before context injection)
-		console.log("\n=== NORMALIZED MESSAGES (BEFORE CONTEXT) ===");
-		console.log(`Total messages: ${normalizedMessages.length}`);
-		normalizedMessages.forEach((msg, idx) => {
-			const contentStr = typeof msg.content === "string" ? msg.content : extractTextFromContent(msg.content);
-			const preview = contentStr.substring(0, 200) + (contentStr.length > 200 ? "..." : "");
-			console.log(`[${idx}] ${msg.role} (${contentStr.length} chars): ${preview}`);
-		});
-		
-		// Inject context only for the latest user message
-		// Keep conversation history intact, only add context to the new question
-		const lastMessageIndex = normalizedMessages.length - 1;
-		const messagesWithContext: ModelMessage[] = [...normalizedMessages];
-		
-		if (lastMessageIndex >= 0 && normalizedMessages[lastMessageIndex]?.role === "user") {
-			// Add context as a separate user message before the question
-			// This keeps the conversation history clear and the question prominent
-			const lastUserMessage = normalizedMessages[lastMessageIndex];
-			const lastUserQuestion = typeof lastUserMessage.content === "string" 
-				? lastUserMessage.content 
-				: extractTextFromContent(lastUserMessage.content);
+		// Inject context into the latest user message
+		// Ensure all messages have ids and normalize parts to only include text
+		// This filters out tool execution parts from previous conversations that may have invalid types
+		const messagesWithContext = messages.map(msg => {
+			// Only keep text parts to avoid validation errors from tool/step parts
+			const textParts = msg.parts.filter(p => p.type === "text" && p.text);
 			
-			// Insert context message right before the last user message
+			return {
+				id: msg.id || `msg-${Date.now()}-${Math.random()}`,
+				role: msg.role,
+				parts: textParts.length > 0 ? textParts : [{ type: "text", text: "" }],
+			};
+		}) as UIMessage[];
+		const lastMessageIndex = messagesWithContext.length - 1;
+		
+		if (lastMessageIndex >= 0 && messagesWithContext[lastMessageIndex]?.role === "user") {
+			const lastUserMessage = messagesWithContext[lastMessageIndex];
+			// Extract the user's question from text parts
+			const userQuestion = lastUserMessage.parts
+				.filter((p) => p.type === "text" && "text" in p && p.text)
+				.map((p) => ("text" in p ? p.text : ""))
+				.join(" ");
+			
+			// Replace the last user message with context + question
 			messagesWithContext[lastMessageIndex] = {
-				role: "user",
-				content: `Here is relevant context from the codebase:\n\n${context}\n\n---\n\nNow answer this question:\n\n${lastUserQuestion}`,
-			} as ModelMessage;
+				...lastUserMessage,
+				parts: [
+					{
+						type: "text",
+						text: `Here is relevant context from the codebase:\n\n${context}\n\n---\n\nNow answer this question:\n\n${userQuestion}`,
+					},
+				],
+			};
 			console.log("\n=== CONTEXT INJECTION: ADDED AS SEPARATE SECTION IN LAST USER MESSAGE ===");
-			console.log(`Last question: "${lastUserQuestion}"`);
+			console.log(`Last question: "${userQuestion}"`);
 		} else {
-			// Fallback: prepend context if structure is unexpected
+			// Fallback: prepend context as new message if structure is unexpected
 			messagesWithContext.unshift({
+				id: `context-${Date.now()}`,
 				role: "user",
-				content: `Here is relevant context from the codebase:\n\n${context}\n\n---\n\nNow answer my question:`,
-			} as ModelMessage);
+				parts: [
+					{
+						type: "text",
+						text: `Here is relevant context from the codebase:\n\n${context}\n\n---\n\nNow answer my question:`,
+					},
+				],
+			});
 			console.log("\n=== CONTEXT INJECTION: PREPENDED AS NEW MESSAGE (UNEXPECTED STRUCTURE) ===");
 		}
 		
@@ -252,25 +253,28 @@ export const chatRoute = async (req: Request) => {
 		console.log(`System prompt length: ${systemPrompt.length} characters`);
 		console.log("\nFull conversation history:");
 		messagesWithContext.forEach((msg, idx) => {
-			const contentStr = typeof msg.content === "string" ? msg.content : extractTextFromContent(msg.content);
-			const contentLength = contentStr.length;
+			const textParts = msg.parts
+				.filter((p) => p.type === "text" && "text" in p && p.text)
+				.map((p) => ("text" in p ? p.text : ""))
+				.join(" ");
+			const contentLength = textParts.length;
 			const isLastMessage = idx === messagesWithContext.length - 1;
-			const hasContext = contentStr.includes(context.substring(0, 100));
+			const hasContext = textParts.includes(context.substring(0, 100));
 			
 			console.log(`\n[${idx}] ${msg.role} (${contentLength} chars)`);
 			
 			// For non-last messages, show full content (they're short)
 			if (!isLastMessage) {
-				console.log(`  Content: ${contentStr}`);
+				console.log(`  Content: ${textParts}`);
 			} else {
 				// For last message, show preview and indicate context
-				const preview = contentStr.substring(0, 400) + (contentLength > 400 ? "..." : "");
+				const preview = textParts.substring(0, 400) + (contentLength > 400 ? "..." : "");
 				console.log(`  Content preview: ${preview}`);
 				console.log(`  Has context: ${hasContext}`);
 				
 				// Extract and show the actual question if it's in the last message
-				if (hasContext && contentStr.includes("Now answer this question:")) {
-					const questionMatch = contentStr.split("Now answer this question:")[1]?.trim();
+				if (hasContext && textParts.includes("Now answer this question:")) {
+					const questionMatch = textParts.split("Now answer this question:")[1]?.trim();
 					if (questionMatch) {
 						const questionPreview = questionMatch.substring(0, 200) + (questionMatch.length > 200 ? "..." : "");
 						console.log(`  Actual question: "${questionPreview}"`);
@@ -286,14 +290,18 @@ export const chatRoute = async (req: Request) => {
 		console.log(context.substring(0, 500));
 		console.log("==========================================\n");
 
-		// Stream the response with RAG context
+		// Stream the response with RAG context and tools
 		// The system prompt includes instructions, and the messages include the context + question
-		const result = await streamResponse(messagesWithContext, systemPrompt);
-
-		// Return the streaming response (includes x-vercel-ai-ui-message-stream header)
-		// Note: Source metadata (referencedNodes, suggestedActions) can be added
-		// via custom data parts in the future if needed
-		return result.toUIMessageStreamResponse();
+		console.log("[chat] Calling streamResponseWithTools with activeDiagramId:", activeDiagramId);
+		
+		// agent.respond() returns a Response object ready for the client
+		return await streamResponseWithTools(
+			messagesWithContext,
+			activeDiagramId,
+			owner,
+			repo,
+			systemPrompt
+		);
 	} catch (err) {
 		console.error("/api/chat/query failed", err);
 		return new Response(JSON.stringify({ error: "Internal Server Error" }), {
