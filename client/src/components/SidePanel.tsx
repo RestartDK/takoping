@@ -31,6 +31,7 @@ interface SidePanelProps {
 	loading: boolean;
 	owner?: string;
 	repo?: string;
+	onLoadPreset: (presetId: string) => void;
 	onCollapse: () => void;
 }
 
@@ -44,6 +45,7 @@ export default function SidePanel({
 	loading,
 	owner,
 	repo,
+	onLoadPreset,
 	onCollapse,
 }: SidePanelProps) {
 	const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -222,7 +224,7 @@ export default function SidePanel({
 
 				<TabsContent value="diagrams" className="mt-0 flex-1 min-h-0">
 					<ScrollArea className="h-full p-4">
-						<PresetsList owner={owner} repo={repo} />
+						<PresetsList owner={owner} repo={repo} onPresetClick={onLoadPreset} />
 					</ScrollArea>
 				</TabsContent>
 			</Tabs>

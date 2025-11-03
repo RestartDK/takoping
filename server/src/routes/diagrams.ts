@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset } from "../db/queries";
+import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset, getDiagramPresetById } from "../db/queries";
 
 const SavePresetSchema = z.object({
 	owner: z.string().min(1, "owner is required"),
@@ -25,18 +25,58 @@ export const getTreeRoute = async (req: Request) => {
 
 	try {
 		const ownerRepo = `${owner}/${repo}`;
-		const layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
-
-		if (!layoutResult) {
+		const repoRecord = await getRepository(ownerRepo);
+		
+		if (!repoRecord) {
 			return new Response(JSON.stringify({ error: "Repository not found" }), {
 				status: 404,
 				headers: { "content-type": "application/json" },
 			});
 		}
 
-		// Return React Flow compatible format with nodes and edges
+		const layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
+
+		if (!layoutResult) {
+			return new Response(JSON.stringify({ error: "Failed to generate diagram layout" }), {
+				status: 500,
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		// Get or create a default preset for this repository
+		// Check for existing default preset first
+		const existingPresets = await getDiagramPresets(ownerRepo);
+		let defaultPreset = existingPresets.find((p: { is_default?: boolean }) => p.is_default === true) || existingPresets[0];
+		
+		// If no preset exists, create a default one
+		if (!defaultPreset) {
+			const fileNodes = layoutResult.nodes.filter((n) => n.type === "file");
+			const directoryNodes = layoutResult.nodes.filter((n) => n.type === "directory");
+			const totalSize = layoutResult.nodes.reduce((sum: number, node) => {
+				const nodeSize = (node.data as { size?: number })?.size;
+				return sum + (nodeSize || 0);
+			}, 0);
+
+			defaultPreset = await saveDiagramPreset({
+				repoId: repoRecord.id,
+				name: "Default View",
+				description: "Default file tree visualization",
+				type: "file_tree",
+				config: {
+					maxDepth,
+					nodeCount: layoutResult.nodes.length,
+					edgeCount: layoutResult.edges.length,
+					fileCount: fileNodes.length,
+					directoryCount: directoryNodes.length,
+					totalSize,
+				},
+			});
+		}
+
+		// Return React Flow compatible format with nodes, edges, and diagramId
 		return new Response(
 			JSON.stringify({
+				diagramId: defaultPreset.id,
 				nodes: layoutResult.nodes,
 				edges: layoutResult.edges,
 			}),
@@ -70,6 +110,77 @@ export const getPresetsRoute = async (req: Request) => {
 		return new Response(JSON.stringify({ presets }), {
 			headers: { "content-type": "application/json" },
 		});
+	} catch (err) {
+		console.error(err);
+		return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+			status: 500,
+			headers: { "content-type": "application/json" },
+		});
+	}
+};
+
+export const getPresetByIdRoute = async (req: Request) => {
+	const url = new URL(req.url);
+	const presetId = url.searchParams.get("id");
+
+	if (!presetId) {
+		return new Response(JSON.stringify({ error: "preset id required" }), {
+			status: 400,
+			headers: { "content-type": "application/json" },
+		});
+	}
+
+	try {
+		// Get the preset details
+		const preset = await getDiagramPresetById(presetId);
+		
+		if (!preset) {
+			return new Response(JSON.stringify({ error: "Preset not found" }), {
+				status: 404,
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		// Extract owner/repo from the preset's owner_repo field
+		const ownerRepo = preset.owner_repo as string;
+		if (!ownerRepo) {
+			return new Response(JSON.stringify({ error: "Invalid preset data" }), {
+				status: 500,
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		// Get the preset config to check for maxDepth
+		const config = preset.config as Record<string, unknown> || {};
+		const maxDepth = typeof config.maxDepth === 'number' ? config.maxDepth : 10;
+
+		// Get the file tree for this repository
+		const layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
+
+		if (!layoutResult) {
+			return new Response(JSON.stringify({ error: "Failed to generate diagram layout" }), {
+				status: 500,
+				headers: { "content-type": "application/json" },
+			});
+		}
+
+		// Return React Flow compatible format with nodes, edges, and diagramId
+		return new Response(
+			JSON.stringify({
+				diagramId: preset.id,
+				nodes: layoutResult.nodes,
+				edges: layoutResult.edges,
+				preset: {
+					id: preset.id,
+					name: preset.name,
+					description: preset.description,
+					type: preset.type,
+				},
+			}),
+			{
+				headers: { "content-type": "application/json" },
+			}
+		);
 	} catch (err) {
 		console.error(err);
 		return new Response(JSON.stringify({ error: "Internal Server Error" }), {

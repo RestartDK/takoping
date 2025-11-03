@@ -12,7 +12,10 @@ interface UseDiagramReturn {
 	loadDiagram: (
 		owner: string,
 		repo: string
-	) => Promise<{ nodeCount: number; edgeCount: number }>;
+	) => Promise<{ nodeCount: number; edgeCount: number; diagramId: string }>;
+	loadPresetById: (
+		presetId: string
+	) => Promise<{ nodeCount: number; edgeCount: number; diagramId: string; preset: { id: string; name: string; description: string | null; type: string } }>;
 	savePreset: (
 		owner: string,
 		repo: string,
@@ -33,7 +36,7 @@ export function useDiagram(): UseDiagramReturn {
 		async (
 			owner: string,
 			repo: string
-		): Promise<{ nodeCount: number; edgeCount: number }> => {
+		): Promise<{ nodeCount: number; edgeCount: number; diagramId: string }> => {
 			setLoading(true);
 			setNodes([]);
 			setEdges([]);
@@ -51,9 +54,62 @@ export function useDiagram(): UseDiagramReturn {
 				const data = await res.json();
 				const loadedNodes = data.nodes || [];
 				const loadedEdges = data.edges || [];
+				const diagramId = data.diagramId;
+				
+				if (!diagramId) {
+					throw new Error("Diagram ID not returned from server");
+				}
+				
 				setNodes(loadedNodes);
 				setEdges(loadedEdges);
-				return { nodeCount: loadedNodes.length, edgeCount: loadedEdges.length };
+				return { 
+					nodeCount: loadedNodes.length, 
+					edgeCount: loadedEdges.length,
+					diagramId 
+				};
+			} finally {
+				setLoading(false);
+			}
+		},
+		[]
+	);
+
+	const loadPresetById = useCallback(
+		async (
+			presetId: string
+		): Promise<{ nodeCount: number; edgeCount: number; diagramId: string; preset: { id: string; name: string; description: string | null; type: string } }> => {
+			setLoading(true);
+			setNodes([]);
+			setEdges([]);
+
+			try {
+				const res = await fetch(
+					`${API_BASE}/api/diagrams/preset?id=${presetId}`
+				);
+
+				if (!res.ok) {
+					const errorData = await res.json();
+					throw new Error(errorData.error || "Failed to load preset");
+				}
+
+				const data = await res.json();
+				const loadedNodes = data.nodes || [];
+				const loadedEdges = data.edges || [];
+				const diagramId = data.diagramId;
+				const preset = data.preset;
+				
+				if (!diagramId) {
+					throw new Error("Diagram ID not returned from server");
+				}
+				
+				setNodes(loadedNodes);
+				setEdges(loadedEdges);
+				return { 
+					nodeCount: loadedNodes.length, 
+					edgeCount: loadedEdges.length,
+					diagramId,
+					preset
+				};
 			} finally {
 				setLoading(false);
 			}
@@ -104,6 +160,7 @@ export function useDiagram(): UseDiagramReturn {
 		edges,
 		loading,
 		loadDiagram,
+		loadPresetById,
 		savePreset,
 		setNodes,
 		setEdges,

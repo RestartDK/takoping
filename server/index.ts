@@ -1,6 +1,6 @@
 import { chatRoute, chatAddRoute } from "./src/routes/chat";
 import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "./src/routes/github";
-import { getTreeRoute, getPresetsRoute, savePresetRoute } from "./src/routes/diagrams";
+import { getTreeRoute, getPresetsRoute, savePresetRoute, getPresetByIdRoute } from "./src/routes/diagrams";
 import { initSchema } from "./src/db/client";
 
 // Initialize PostgreSQL schema
@@ -73,6 +73,7 @@ Bun.serve({
 			GET: withCors(getPresetsRoute),
 		},
 		"/api/diagrams/preset": {
+			GET: withCors(getPresetByIdRoute),
 			POST: withCors(savePresetRoute),
 		},
 	},

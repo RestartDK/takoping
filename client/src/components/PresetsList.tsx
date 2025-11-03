@@ -16,11 +16,12 @@ interface Preset {
 interface PresetsListProps {
   owner?: string;
   repo?: string;
+  onPresetClick: (presetId: string) => void;
 }
 
 const API_BASE = config.apiBase;
 
-export default function PresetsList({ owner, repo }: PresetsListProps) {
+export default function PresetsList({ owner, repo, onPresetClick }: PresetsListProps) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,11 @@ export default function PresetsList({ owner, repo }: PresetsListProps) {
   return (
     <div className="space-y-4">
       {presets.map((preset) => (
-        <Card key={preset.id} className="cursor-pointer hover:bg-accent transition-colors">
+        <Card 
+          key={preset.id} 
+          className="cursor-pointer hover:bg-accent transition-colors"
+          onClick={() => onPresetClick(preset.id)}
+        >
           <CardHeader>
             <div className="flex items-start justify-between">
               <CardTitle className="text-base">{preset.name}</CardTitle>

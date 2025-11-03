@@ -367,3 +367,13 @@ export async function getDiagramPresets(ownerRepo: string) {
   `;
 }
 
+export async function getDiagramPresetById(presetId: string) {
+	const result = await pg`
+    SELECT dp.*, r.owner_repo
+    FROM diagram_presets dp
+    JOIN repositories r ON dp.repo_id = r.id
+    WHERE dp.id = ${presetId}
+  `;
+	return result[0] || null;
+}
+
