@@ -8,6 +8,7 @@ import {
 	MiniMap,
 	type NodeChange,
 	type EdgeChange,
+	type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export default function App() {
 	const [repoInput, setRepoInput] = useState("");
 	const [chatInput, setChatInput] = useState("");
 	const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+	const [activeDiagramId, setActiveDiagramId] = useState<string>("");
 	const sidePanelRef = useRef<ImperativePanelHandle>(null);
 
 	const {
@@ -44,16 +46,45 @@ export default function App() {
 		edges,
 		loading: diagramLoading,
 		loadDiagram,
+		loadPresetById,
 		savePreset,
 		setNodes,
 		setEdges,
 	} = useDiagram();
+	const handleDiagramCreated = useCallback(
+		(data: { id: string; name: string; nodes: FileNode[]; edges: Edge[] }) => {
+			setNodes(data.nodes);
+			setEdges(data.edges);
+			setActiveDiagramId(data.id);
+			setRepoStatus(`Created diagram: ${data.name}`);
+		},
+		[setNodes, setEdges, setRepoStatus]
+	);
+
+	const handleDiagramUpdated = useCallback(
+		(diagramId: string, updatedNodes: FileNode[], updatedEdges: Edge[]) => {
+			setNodes(updatedNodes);
+			setEdges(updatedEdges);
+			setActiveDiagramId(diagramId);
+			setRepoStatus("Diagram updated");
+		},
+		[setNodes, setEdges, setRepoStatus]
+	);
+
+	// Only initialize useChat if we have an activeDiagramId (diagram must be loaded first)
+	// We pass a placeholder ID if not loaded yet to satisfy the type requirement
 	const {
 		messages,
 		isLoading: chatLoading,
 		sendMessage,
 		clearHistory,
-	} = useChat({ owner, repo });
+	} = useChat({
+		owner: owner || "",
+		repo: repo || "",
+		activeDiagramId: activeDiagramId || "",
+		onDiagramCreated: handleDiagramCreated,
+		onDiagramUpdated: handleDiagramUpdated,
+	});
 
 	const loading = repoLoading || diagramLoading || chatLoading;
 	const status = repoStatus || "Ready";
@@ -80,7 +111,8 @@ export default function App() {
 			if (ownerName && repoName) {
 				setRepoStatus("Loading diagram...");
 				try {
-					const { nodeCount } = await loadDiagram(ownerName, repoName);
+					const { nodeCount, diagramId } = await loadDiagram(ownerName, repoName);
+					setActiveDiagramId(diagramId);
 					setRepoStatus(`Loaded ${nodeCount} nodes`);
 				} catch (err) {
 					setRepoStatus(
@@ -95,9 +127,13 @@ export default function App() {
 
 	const sendChat = useCallback(() => {
 		if (!chatInput.trim()) return;
+		if (!activeDiagramId) {
+			setRepoStatus("Please load a repository first");
+			return;
+		}
 		sendMessage({ text: chatInput });
 		setChatInput("");
-	}, [chatInput, sendMessage]);
+	}, [chatInput, sendMessage, activeDiagramId, setRepoStatus]);
 
 	const handleSavePreset = useCallback(async () => {
 		if (!owner || !repo) return;
@@ -112,6 +148,21 @@ export default function App() {
 			);
 		}
 	}, [owner, repo, savePreset, setRepoStatus]);
+
+	const handleLoadPreset = useCallback(async (presetId: string) => {
+		setRepoStatus("Loading preset...");
+		try {
+			const { nodeCount, diagramId, preset } = await loadPresetById(presetId);
+			setActiveDiagramId(diagramId);
+			setRepoStatus(`Loaded preset "${preset.name}" with ${nodeCount} nodes`);
+		} catch (err) {
+			setRepoStatus(
+				`Error loading preset: ${
+					err instanceof Error ? err.message : String(err)
+				}`
+			);
+		}
+	}, [loadPresetById, setRepoStatus]);
 
 	return (
 		<div className="w-screen h-screen flex flex-col">
@@ -202,6 +253,7 @@ export default function App() {
 							loading={chatLoading}
 							owner={owner}
 							repo={repo}
+							onLoadPreset={handleLoadPreset}
 							onCollapse={() => {
 								sidePanelRef.current?.collapse();
 							}}
