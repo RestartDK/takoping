@@ -9,5 +9,5 @@ export const config = {
 	 * Set via VITE_API_BASE environment variable
 	 * Falls back to http://localhost:3000 for local development
 	 */
-	apiBase: import.meta.env.VITE_API_BASE || "http://localhost:3000",
+	apiBase: import.meta.env.VITE_API_BASE,
 } as const;
