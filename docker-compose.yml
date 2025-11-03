@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: takoping
+      POSTGRES_USER: takoping
+      POSTGRES_PASSWORD: takoping
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  chroma:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma:/data
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file:
+      - ./server/.env.local
+    environment:
+      DATABASE_URL: postgres://takoping:takoping@postgres:5432/takoping
+      CHROMA_URL: http://chroma:8000
+      PORT: "3000"
+    depends_on:
+      - postgres
+      - chroma
+
+  client-build:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: http://localhost
+    volumes:
+      - webroot:/usr/share/nginx/html
+    command: ["/bin/sh", "-c", "cp -r /app/dist/* /usr/share/nginx/html/"]
+
+  nginx:
+    image: nginx:stable
+    depends_on:
+      - server
+      - client-build
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - webroot:/usr/share/nginx/html
+
+volumes:
+  pgdata: {}
+  chroma: {}
+  webroot: {}
+
+
