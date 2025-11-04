@@ -96,7 +96,7 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 
 - **Primary LLM:** llama-3 1-nemotron-nano-8B-v1 (NVIDIA NIM)
 - **Embedding Model:** Retrieval Embedding NIM
-- **Deployment:** Amazon EKS or SageMaker AI endpoint
+- **Deployment:** Amazon EKS (NVIDIA NIM microservices deployed via Helm)
 - **Pattern Recognition:** Custom models for architectural pattern detection
 - **Client SDK:** Vercel AI SDK for agent tool-use and provider routing (supports local Ollama and custom NIM endpoints)
 
@@ -116,18 +116,20 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
   - Switching: Single env toggle (`AI_PROVIDER=ollama|nim`, `CHROMA_URL`, `LLM_BASE_URL`) to swap between local and AWS
 - **AWS (Staging/Prod):**
   - Vector DB: Chromadb on EC2 with EBS-backed storage (or managed alternative later)
-  - LLMs: NVIDIA NIM endpoints on SageMaker (primary LLM + embeddings NIM)
-  - Networking: VPC + Security Groups; HTTPS termination via ALB or CloudFront
-  - Secrets: AWS Secrets Manager for API keys and model endpoints
+  - LLMs: NVIDIA NIM microservices on Amazon EKS (primary LLM + embeddings NIM) deployed via Helm charts
+  - Networking: EKS cluster with LoadBalancer services for external access; HTTPS termination via ALB or CloudFront
+  - Secrets: Kubernetes secrets for NGC API keys; AWS Secrets Manager for other credentials
 
 ### 5.4 Deployment Plan (High Level)
 
 - **Manual First:**
-  - Provision EC2 for Bun server and Chromadb; deploy NIM endpoints on SageMaker
+  - Provision EC2 for Bun server and Chromadb; deploy EKS cluster with GPU nodes (g6e.xlarge or larger)
+  - Deploy NVIDIA NIM microservices to EKS using Helm charts; configure LoadBalancer services for external access
   - Configure DNS/SSL; wire env variables to point client/server to AWS services
 - **Infrastructure as Code (Follow-up):**
-  - Terraform modules for VPC, EC2, Security Groups, IAM roles/policies, SageMaker endpoints, and DNS records
-  - Outputs expose service URLs; variables mirror local `.env` for easy switching
+  - Terraform modules for VPC, EKS cluster, EC2, Security Groups, IAM roles/policies, EBS storage classes, and DNS records
+  - Helm chart deployments for NIM microservices; outputs expose service URLs
+  - Variables mirror local `.env` for easy switching between local and AWS deployments
 
 ## 6. User Stories
 
@@ -177,8 +179,8 @@ Takoping is an AI-powered developer onboarding platform that provides intelligen
 ### 8.2 Server
 
 - **Bun server:** Bun server (EC2)
-- **AI model:** NVIDIA NIM microservice llama-3 1-nemotron-nano-8B-v1 large language reasoning mode as an endpoint (sagemaker)
-- **Embeddings model:** Retrieval embedding NIM as an endpoint (sagemaker)
+- **AI model:** NVIDIA NIM microservice llama-3 1-nemotron-nano-8B-v1 deployed on Amazon EKS via Helm chart, exposed via LoadBalancer service
+- **Embeddings model:** Retrieval embedding NIM deployed on Amazon EKS via Helm chart, exposed via LoadBalancer service
 - **AI client SDK:** Vercel AI SDK for model/agent interactions (providers: Ollama local, custom NIM endpoint)
 - **Real-time Updates:** WebSocket connections for live updates using Bun's native WebSocket API
 
