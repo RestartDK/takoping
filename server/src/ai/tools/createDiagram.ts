@@ -7,7 +7,7 @@ import {
 export async function createDiagram(params: {
 	owner: string;
 	repo: string;
-	name: string;
+	name?: string;
 	description?: string;
 	filters?: {
 		pathPatterns?: string[];
@@ -17,7 +17,44 @@ export async function createDiagram(params: {
 	};
 	layoutType?: string;
 }) {
-	const { owner, repo, name, description, filters, layoutType } = params;
+	const { owner, repo, filters, layoutType } = params;
+	
+	// Generate name if not provided (agent should provide this, but fallback for edge cases)
+	let name = params.name;
+	if (!name) {
+		const parts = [];
+		if (filters?.languages && filters.languages.length > 0) {
+			parts.push(filters.languages.join(", "));
+		}
+		if (filters?.pathPatterns && filters.pathPatterns.length > 0) {
+			parts.push(filters.pathPatterns.join(", "));
+		}
+		if (parts.length > 0) {
+			name = `${parts.join(" - ")} Diagram`;
+		} else {
+			name = `${repo} File Tree`;
+		}
+	}
+	
+	// Generate description if not provided (agent should provide this, but fallback for edge cases)
+	let description = params.description;
+	if (!description) {
+		const descParts = [];
+		if (filters?.languages && filters.languages.length > 0) {
+			descParts.push(`${filters.languages.join(", ")} files`);
+		}
+		if (filters?.pathPatterns && filters.pathPatterns.length > 0) {
+			descParts.push(`in ${filters.pathPatterns.join(", ")}`);
+		}
+		if (filters?.excludePaths && filters.excludePaths.length > 0) {
+			descParts.push(`excluding ${filters.excludePaths.join(", ")}`);
+		}
+		if (descParts.length > 0) {
+			description = `File tree showing ${descParts.join(" ")}`;
+		} else {
+			description = `Complete file tree for ${repo}`;
+		}
+	}
 
 	// Get repository to find repoId
 	const repoRecord = await getRepository(`${owner}/${repo}`);
