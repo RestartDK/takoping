@@ -2,6 +2,8 @@
 
 After cleaning up your cluster, here's what you need to know about redeploying.
 
+**For complete deployment instructions, see `eks-full-deployment-guide.md`**
+
 ## What Gets Deleted vs. What Persists
 
 ### ❌ Deleted When You Clean Up:
@@ -35,17 +37,17 @@ After cleaning up your cluster, here's what you need to know about redeploying.
 - **Subsequent redeployments**: ~30-40 minutes (same steps, but you know what to do)
 
 ### What You Need to Do Again:
-1. ✅ Create EKS cluster (Steps 1-5)
-2. ✅ Set up storage (Step 6)
-3. ✅ Configure NVIDIA API (Step 7)
-4. ✅ Download Helm chart (Step 8)
-5. ✅ Create secrets (Step 9)
-6. ✅ Deploy NIM (Steps 10-12)
-7. ✅ Expose services (Steps 13-14)
-8. ✅ Update server config (Step 16)
-9. ✅ Deploy embeddings (Step 17) - if needed
+1. ✅ Create EKS cluster with 2 nodes (Steps 1-5 from `eks-setup-guide.md`)
+2. ✅ Set up storage (Step 6 from `eks-setup-guide.md`)
+3. ✅ Deploy LLM NIM (Steps 7-14 from `eks-setup-guide.md`)
+4. ✅ Label nodes for workload separation (from `eks-full-deployment-guide.md`)
+5. ✅ Build and push Docker images to ECR (from `eks-full-deployment-guide.md`)
+6. ✅ Deploy application stack (from `eks-full-deployment-guide.md`)
+7. ✅ Configure public embeddings API (from `eks-full-deployment-guide.md`)
 
 **The good news**: All the configuration files are reusable! You just need to recreate the cluster and redeploy.
+
+**Note**: For full application stack deployment, follow `eks-full-deployment-guide.md` after setting up NIM.
 
 ---
 

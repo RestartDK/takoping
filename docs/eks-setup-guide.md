@@ -2,6 +2,8 @@
 
 This guide walks you through setting up an Amazon EKS cluster and deploying NVIDIA NIM microservices.
 
+**After completing this guide, see `eks-full-deployment-guide.md` for deploying your application stack.**
+
 ## Prerequisites Checklist
 
 Before starting, ensure you have:
