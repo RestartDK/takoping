@@ -74,6 +74,7 @@ Todo:
 
   Ops & Extras:
     - Terraform IaC: VPC, EC2, SG, IAM, SageMaker endpoints, DNS
+    - Move db to amazon rds instead
     - (Later) Optionally split Chromadb to its own EC2 and add ALB+ACM
     - Highlight specific nodes when you are chatting with the chatbot
     - Add the "tour" feature
