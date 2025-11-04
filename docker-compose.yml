@@ -7,32 +7,42 @@ services:
       POSTGRES_PASSWORD: takoping
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U takoping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   chroma:
     image: chromadb/chroma:latest
     volumes:
       - chroma:/data
+    restart: unless-stopped
 
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
     env_file:
-      - ./server/.env.local
+      - ./server/.env
     environment:
       DATABASE_URL: postgres://takoping:takoping@postgres:5432/takoping
       CHROMA_URL: http://chroma:8000
       PORT: "3000"
     depends_on:
-      - postgres
-      - chroma
+      postgres:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+    restart: unless-stopped
 
   client-build:
     build:
       context: ./client
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE: http://localhost
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost}
     volumes:
       - webroot:/usr/share/nginx/html
     command: ["/bin/sh", "-c", "cp -r /app/dist/* /usr/share/nginx/html/"]
@@ -47,6 +57,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - webroot:/usr/share/nginx/html
+    restart: unless-stopped
 
 volumes:
   pgdata: {}
