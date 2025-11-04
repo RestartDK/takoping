@@ -1,5 +1,8 @@
 import { env } from "../env";
 import { z } from "zod";
+// import { generateObject } from "ai"; // removed: no longer classifying intent
+import { createOllama } from "ai-sdk-ollama";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { formatContexts, searchByText, addText, type SearchFilters } from "../ai/retriever";
 import { buildPrompt } from "../ai/prompt";
 import { streamResponseWithTools } from "../ai/agent";
@@ -70,6 +73,25 @@ export const chatRoute = async (req: Request) => {
 	});
 
 	try {
+		// Get model for classification and extraction
+		let model;
+		if (env.AI_PROVIDER === "ollama") {
+			const ollama = createOllama({ baseURL: env.OLLAMA_BASE_URL });
+			if (!env.OLLAMA_REASONING_MODEL) {
+				throw new Error("OLLAMA_REASONING_MODEL is required");
+			}
+			model = ollama(env.OLLAMA_REASONING_MODEL);
+		} else {
+			if (!env.NIM_API_KEY || !env.NIM_BASE_URL || !env.NIM_MODEL) {
+				throw new Error("NIM credentials required");
+			}
+			const nim = createOpenAICompatible({
+				name: "nim",
+				apiKey: env.NIM_API_KEY,
+				baseURL: env.NIM_BASE_URL,
+			});
+			model = nim(env.NIM_MODEL);
+		}
 		// Extract the latest user message for RAG retrieval
 		const latestUserMessage = messages
 			.filter((m) => m.role === "user")
@@ -112,10 +134,42 @@ export const chatRoute = async (req: Request) => {
 		});
 
 		// Format context and build system prompt
+		// Agent will infer whether to call a tool directly from the conversation
 		const context = formatContexts(results);
 		console.log("Formatted context length:", context.length);
 		console.log("Formatted context preview:", context.substring(0, 500));
-		const systemPrompt = buildPrompt(context);
+		const systemPrompt = buildPrompt(
+			activeDiagramId,
+			owner,
+			repo,
+			null
+		);
+
+		// NIM connectivity preflight diagnostics (non-blocking):
+		if (env.AI_PROVIDER === "nim" && env.NIM_BASE_URL && env.NIM_API_KEY) {
+			try {
+				const preflightStart = Date.now();
+				const controller = new AbortController();
+				const timer = setTimeout(() => controller.abort(), 5000);
+				const url = `${env.NIM_BASE_URL.replace(/\/$/, "")}/models`;
+				console.log(`[preflight] GET ${url}`);
+				const resp = await fetch(url, {
+					headers: { Authorization: `Bearer ${env.NIM_API_KEY}` },
+					signal: controller.signal,
+				});
+				clearTimeout(timer);
+				const dur = Date.now() - preflightStart;
+				let bodyPreview = "";
+				try {
+					const text = await resp.text();
+					bodyPreview = text.substring(0, 300);
+				} catch {}
+				console.log("[preflight] models status:", resp.status, resp.statusText, "durationMs:", dur);
+				console.log("[preflight] models body preview:", bodyPreview);
+			} catch (e) {
+				console.warn("[preflight] models request failed:", e);
+			}
+		}
 
 		// Extract referenced nodes and create suggested actions
 		const referencedNodes: string[] = [];

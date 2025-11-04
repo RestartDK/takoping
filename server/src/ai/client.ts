@@ -3,7 +3,10 @@ import { createOllama } from "ai-sdk-ollama";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "../env";
 
-export async function streamResponse(messages: ModelMessage[], system?: string) {
+export async function streamResponse(
+	messages: ModelMessage[],
+	system?: string
+) {
 	if (env.AI_PROVIDER === "ollama") {
 		const ollama = createOllama({ baseURL: env.OLLAMA_BASE_URL });
 		if (!env.OLLAMA_REASONING_MODEL)
@@ -23,8 +26,10 @@ export async function streamResponse(messages: ModelMessage[], system?: string) 
 
 	const nim = createOpenAICompatible({
 		name: "nim",
-		apiKey: env.NIM_API_KEY,
 		baseURL: env.NIM_BASE_URL,
+		headers: {
+			Authorization: `Bearer ${env.NIM_API_KEY}`,
+		},
 	});
 	return streamText({ model: nim(env.NIM_MODEL), messages, system });
 }

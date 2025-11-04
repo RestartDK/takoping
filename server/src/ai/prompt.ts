@@ -1,34 +1,56 @@
 import { env } from "../env";
 import type { Metadata } from "chromadb";
 
-export function buildPrompt(context: string): string {
-	// System prompt provides behavioral guidance and instructions
-	// The actual context is injected directly into the conversation messages
-	const system = `You are a helpful coding assistant specialized in answering questions about codebases and generating visualizations.
+export function buildPrompt(
+	activeDiagramId: string,
+	owner: string,
+	repo: string,
+	classification?: { isDiagramRequest: boolean; reasoning: string } | null
+): string {
+	let diagramInstructions = "";
 
-Your approach:
-- When users ask about repository structure, file counts, or statistics, use queryFileTree to get accurate information without creating diagrams
-- When users explicitly request a diagram, visualization, or want to "see" the structure, use createDiagram to generate an interactive diagram
-- When users want to modify an existing diagram (hide files, filter, change depth), use updateDiagramFilters on the current active diagram
-- Always explain what you're doing and why, especially after creating or updating diagrams
-- Provide meaningful diagram names that reflect what the user wants to see
+	if (classification?.isDiagramRequest) {
+		diagramInstructions = `
 
-When creating diagrams:
-- Choose clear, descriptive names based on the user's intent (e.g., "TypeScript Source Files", "Backend API Structure")
-- Select appropriate filters based on what the user wants to visualize:
-  * Use language filters when users mention specific languages
-  * Use path patterns when users reference specific folders (e.g., "src folder", "backend")
-  * Set maxDepth to 7 by default for readability, but increase if the user wants more detail
-- After creating a diagram, summarize what it shows (file count, languages, structure)
+=== DIAGRAM REQUEST DETECTED ===
 
-When answering questions using codebase context:
-- Use the provided context to answer questions accurately
-- Cite sources using [SOURCE 1], [SOURCE 2], etc. format
-- Quote specific code when relevant, mentioning file paths and line numbers
-- If the context doesn't contain needed information, explicitly say so
-- Be precise and reference exact code from the provided context`;
+The user wants a diagram. The RAG context above contains file paths.
 
-	return system;
+STEP 1 - EXTRACT FILTERS FROM CONTEXT:
+Look at the [[SOURCE X | repo:path]] labels in the context above.
+
+Examples:
+- See "src/routes/api.ts", "src/routes/auth.ts" → use pathPatterns: ["src/routes/**"]
+- See "src/components/Button.tsx", "src/components/Input.tsx" → use pathPatterns: ["src/components/**"]
+- User says "all files" or "whole project" → omit pathPatterns (shows everything)
+
+Common directory patterns: "src/**", "lib/**", "app/**", "components/**"
+
+STEP 2 - CALL createDiagram TOOL:
+Immediately call the createDiagram tool with:
+- name: Descriptive name based on user request (e.g., "Dependency Graph", "API Routes Structure")
+- description: Brief description
+- filters.pathPatterns: Array of patterns you extracted
+- filters.languages: If user mentions language (e.g., "typescript")
+
+EXAMPLE:
+Context: [[SOURCE 1 | repo:src/routes/api.ts]], [[SOURCE 2 | repo:src/routes/auth.ts]]
+User: "show me API routes"
+→ createDiagram({ name: "API Routes", filters: { pathPatterns: ["src/routes/**"] } })
+
+DO NOT describe the tool or output JSON - CALL IT DIRECTLY.`;
+	}
+
+	return `You are a coding assistant for the ${owner}/${repo} repository.
+
+Answer questions using the provided context. Cite sources and quote code when helpful.
+
+TOOLS AVAILABLE:
+- createDiagram: Creates a new diagram visualization
+- updateDiagramFilters: Updates existing diagram (ID: ${activeDiagramId})
+${diagramInstructions}
+
+For non-diagram questions, just answer directly.`;
 }
 
 export function sourcesWithIndices(results: {
@@ -55,3 +77,4 @@ export function sourcesWithIndices(results: {
 
 
 
+// FIXME: Maybe use the routing technique if this does not work

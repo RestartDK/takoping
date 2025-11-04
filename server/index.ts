@@ -13,18 +13,14 @@ const corsHeaders = {
 	"Access-Control-Expose-Headers": "x-vercel-ai-data-stream, x-vercel-ai-ui-message-stream",
 };
 
-// Wrapper to add CORS headers to responses
-// Properly handles streaming responses by adding headers without re-wrapping
 function withCors(handler: (req: Request) => Response | Promise<Response>) {
 	return async (req: Request) => {
-		// Handle preflight OPTIONS requests
 		if (req.method === "OPTIONS") {
 			return new Response(null, { status: 204, headers: corsHeaders });
 		}
 
 		const response = await handler(req);
 		
-		// Add CORS headers to response (mutates existing headers)
 		Object.entries(corsHeaders).forEach(([key, value]) => {
 			response.headers.set(key, value);
 		});
@@ -73,12 +69,10 @@ Bun.serve({
 			GET: withCors(getPresetsRoute),
 		},
 		"/api/diagrams/preset": {
-			GET: withCors(getPresetByIdRoute),
 			POST: withCors(savePresetRoute),
 		},
 	},
 	fetch(req) {
-		// Handle OPTIONS for unmatched routes
 		if (req.method === "OPTIONS") {
 			return new Response(null, { status: 204, headers: corsHeaders });
 		}
