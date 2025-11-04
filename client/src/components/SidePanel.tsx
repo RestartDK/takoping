@@ -148,7 +148,7 @@ export default function SidePanel({
 													<div className="text-xs font-medium mb-1 opacity-70">
 														{isUser ? "You" : "Assistant"}
 													</div>
-													<div className="text-sm whitespace-pre-wrap break-words">
+													<div className="text-sm whitespace-pre-wrap wrap-break-word">
 														{textParts}
 													</div>
 												</CardContent>
@@ -224,7 +224,11 @@ export default function SidePanel({
 
 				<TabsContent value="diagrams" className="mt-0 flex-1 min-h-0">
 					<ScrollArea className="h-full p-4">
-						<PresetsList owner={owner} repo={repo} onPresetClick={onLoadPreset} />
+						<PresetsList
+							owner={owner}
+							repo={repo}
+							onPresetClick={onLoadPreset}
+						/>
 					</ScrollArea>
 				</TabsContent>
 			</Tabs>
