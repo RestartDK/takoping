@@ -55,25 +55,26 @@ Todo:
     - Persist diagram tabs/presets (filters, weighting)
 
   Deployment:
-    - Manual deploy: EC2 for Bun, EC2 for Chromadb, SageMaker NIM endpoints
+    ✔ Create docker compose for setup @done(25-11-03 16:56)
+    ✔ Deploy first nim on eks instance @done(25-11-03 23:16)
+    - Deploy embeddings model on eks @started(25-11-03 23:17)
+    - Test nim and embeddings model on local project before full deployment
     - Launch EC2 (Ubuntu 22.04 or AL2023, t3.medium) with SG (22-myIP, 80/443-public)
-    - Allocate and associate Elastic IP to the EC2 instance
+    - Manual deploy: EC2 for Bun, EC2 for Chromadb, SageMaker NIM endpoints (with using .env for secrets)
     - Install Bun, Docker, NGINX on EC2 (enable services)
-    - Run Chromadb via Docker bound to 127.0.0.1:8000
+    - Allocate and associate Elastic IP to the EC2 instance
     - Clone repo to /opt/takoping and install server deps (bun install)
     - Create server/.env with NIM (SageMaker) endpoints + retrieval vars
     - Create systemd service to run Bun server on 127.0.0.1:3000
     - Configure NGINX: proxy api.<domain> → 127.0.0.1:3000, obtain TLS
     - Build client with VITE_API_BASE=https://api.<domain> and deploy to S3+CloudFront
-    - Provision SageMaker endpoints: llama-3 nemotron reasoning + Retrieval Embedding NIM
     - Smoke test: /health, /api/chat/query, /api/diagrams/* from public URL
-    - Lock down: keep only 80/443 public; 22 from my IP; 3000/8000 private
-    - (Later) Optionally split Chromadb to its own EC2 and add ALB+ACM
     - Wire DNS/SSL and env vars to AWS services
-    - Terraform IaC: VPC, EC2, SG, IAM, SageMaker endpoints, DNS
     - Optional: CI/CD workflow to build/deploy backend/frontend
 
   Ops & Extras:
+    - Terraform IaC: VPC, EC2, SG, IAM, SageMaker endpoints, DNS
+    - (Later) Optionally split Chromadb to its own EC2 and add ALB+ACM
     - Highlight specific nodes when you are chatting with the chatbot
     - Add the "tour" feature
     - Add tracing/logging and minimal onboarding Q&A eval set
