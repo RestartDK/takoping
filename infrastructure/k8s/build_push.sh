@@ -21,10 +21,10 @@ docker push "$ECR/takoping-server:latest"
 
 if [ -n "${API_BASE}" ]; then
   echo "Building client image (linux/amd64) with VITE_API_BASE=$API_BASE ..."
-  docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.client --build-arg VITE_API_BASE="$API_BASE" .
+  docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.k8s --build-arg VITE_API_BASE="$API_BASE" client
 else
   echo "Building client image (linux/amd64) with relative API base (no VITE_API_BASE) ..."
-  docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.client .
+  docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.k8s client
 fi
 docker tag takoping-client:latest "$ECR/takoping-client:latest"
 docker push "$ECR/takoping-client:latest"

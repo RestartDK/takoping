@@ -133,14 +133,14 @@ docker tag takoping-server:latest $ECR/takoping-server:latest
 docker push $ECR/takoping-server:latest
 
 # Build and push client image (with relative API base)
-docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.client .
+docker build --platform linux/amd64 -t takoping-client:latest -f Dockerfile.k8s client
 docker tag takoping-client:latest $ECR/takoping-client:latest
 docker push $ECR/takoping-client:latest
 
 echo "Images pushed to: $ECR"
 ```
 
-**Note**: The client image uses `nginx.k8s.conf` which proxies `/api/*` to the server service, so no API base URL is needed in the build.
+**Note**: The client image uses `client/nginx.k8s.conf` which proxies `/api/*` to the server service, so no API base URL is needed in the build.
 
 ---
 
