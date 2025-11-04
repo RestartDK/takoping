@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+        - name: server
+          image: 748115561246.dkr.ecr.us-east-1.amazonaws.com/takoping-server:latest
+          envFrom:
+            - secretRef:
+                name: server-env
+          env:
+            - name: DATABASE_URL
+              value: postgres://takoping:takoping@postgres.app.svc.cluster.local:5432/takoping
+            - name: CHROMA_URL
+              value: http://chroma.app.svc.cluster.local:8000
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: app
+spec:
+  selector:
+    app: server
+  ports:
+    - port: 3000
+      targetPort: 3000
+
+
