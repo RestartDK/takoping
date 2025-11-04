@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nim-embeddings-public
+  namespace: nim
+spec:
+  selector:
+    app.kubernetes.io/name: nim-llm
+    app.kubernetes.io/instance: my-nim-embeddings
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  type: LoadBalancer
