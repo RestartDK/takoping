@@ -15,16 +15,16 @@ export async function streamResponse(messages: ModelMessage[], system?: string) 
 		});
 	}
 
-	if (!env.NIM_OPENAI_API_KEY || !env.NIM_OPENAI_BASE_URL || !env.NIM_MODEL) {
+	if (!env.NIM_API_KEY || !env.NIM_BASE_URL || !env.NIM_MODEL) {
 		throw new Error(
-			"NIM_OPENAI_API_KEY, NIM_OPENAI_BASE_URL and NIM_MODEL are required for nim provider"
+			"NIM_API_KEY, NIM_BASE_URL and NIM_MODEL are required for nim provider"
 		);
 	}
 
 	const nim = createOpenAICompatible({
 		name: "nim",
-		apiKey: env.NIM_OPENAI_API_KEY,
-		baseURL: env.NIM_OPENAI_BASE_URL,
+		apiKey: env.NIM_API_KEY,
+		baseURL: env.NIM_BASE_URL,
 	});
 	return streamText({ model: nim(env.NIM_MODEL), messages, system });
 }

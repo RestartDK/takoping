@@ -3,16 +3,20 @@ import { ChromaClient } from "chromadb";
 import { env } from "../env";
 import { NIMEmbedding } from "./nim-embedding";
 
-export const chromaClient = new ChromaClient();
+// Prefer CHROMA_URL via env (e.g., http://chroma:8000 in Docker),
+// fallback to default localhost if not provided
+export const chromaClient = new ChromaClient({
+  path: env.CHROMA_URL ?? undefined,
+});
 
 export function getEmbedder() {
 	if (env.AI_PROVIDER === "nim") {
-		if (!env.NIM_OPENAI_BASE_URL || !env.NIM_OPENAI_API_KEY || !env.NIM_EMBED_MODEL) {
-			throw new Error("NIM_OPENAI_BASE_URL, NIM_OPENAI_API_KEY, and NIM_EMBED_MODEL are required for NIM embeddings");
+		if (!env.NIM_EMBED_BASE_URL || !env.NIM_EMBED_API_KEY || !env.NIM_EMBED_MODEL) {
+			throw new Error("NIM_EMBED_BASE_URL, NIM_EMBED_API_KEY, and NIM_EMBED_MODEL are required for NIM embeddings");
 		}
 		return new NIMEmbedding({
-			apiKey: env.NIM_OPENAI_API_KEY,
-			baseURL: env.NIM_OPENAI_BASE_URL,
+			apiKey: env.NIM_EMBED_API_KEY,
+			baseURL: env.NIM_EMBED_BASE_URL,
 			model: env.NIM_EMBED_MODEL,
 		});
 	}

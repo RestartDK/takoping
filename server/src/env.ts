@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 const EnvSchema = z.object({
+	// Server
+	PORT: z.coerce.number().int().positive().default(3000),
+
 	AI_PROVIDER: z.enum(["ollama", "nim"]).default("ollama"),
 
 	// Database
@@ -13,9 +16,11 @@ const EnvSchema = z.object({
 	OLLAMA_EMBEDDINGS_MODEL: z.string().optional(),
 
 	// NVIDIA NIM (OpenAI-compatible)
-	NIM_OPENAI_BASE_URL: z.url().optional(),
-	NIM_OPENAI_API_KEY: z.string().optional(),
+	NIM_BASE_URL: z.url().optional(),
+	NIM_API_KEY: z.string().optional(),
 	NIM_MODEL: z.string().optional(),
+	NIM_EMBED_BASE_URL: z.url().optional(),
+	NIM_EMBED_API_KEY: z.string().optional(),
 	NIM_EMBED_MODEL: z.string().optional(),
 
 	// Retrieval

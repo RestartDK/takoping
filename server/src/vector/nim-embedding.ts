@@ -28,6 +28,7 @@ export class NIMEmbedding implements EmbeddingFunction {
       body: JSON.stringify({
         model: this.model,
         input: texts,
+        input_type: "passage", // Required for asymmetric models
       }),
     });
 
