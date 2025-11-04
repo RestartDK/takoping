@@ -1,182 +1,103 @@
-# Deployment Architecture Recommendation
+# Deployment Architecture
 
-## Recommended: Hybrid Approach (EKS + EC2)
+## Current Implementation: Full EKS Deployment
+
+This document describes the actual deployment architecture used for the hackathon.
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  EKS Cluster (GPU Nodes - g6e.xlarge)                  │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  NVIDIA NIM Services:                           │  │
-│  │  • llama-3.1-nemotron-nano-8b-v1 (LLM)         │  │
-│  │  • nv-embedqa-e5 (Embeddings) [optional]        │  │
-│  │  Exposed via LoadBalancer                       │  │
-│  └──────────────────────────────────────────────────┘  │
+│  EKS Cluster (2 GPU Nodes - g6e.xlarge)                │
+│  ┌──────────────────────┐  ┌──────────────────────┐  │
+│  │  Node 1 (role=llm)   │  │  Node 2 (role=app)   │  │
+│  │                      │  │                      │  │
+│  │  • LLM NIM          │  │  • Bun Server        │  │
+│  │    (LoadBalancer)   │  │  • PostgreSQL        │  │
+│  │                      │  │  • ChromaDB          │  │
+│  │                      │  │  • Nginx (Frontend) │  │
+│  │                      │  │    (LoadBalancer)   │  │
+│  └──────────────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                         ↓ HTTP API calls
-┌─────────────────────────────────────────────────────────┐
-│  EC2 Instance (t3.medium or t3.large)                   │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  Application Services (Docker Compose):         │  │
-│  │  • Bun Server (Port 3000)                      │  │
-│  │  • PostgreSQL (Port 5432)                        │  │
-│  │  • ChromaDB (Port 8000)                        │  │
-│  │  • Nginx (Port 80) - serves frontend + proxy   │  │
-│  └──────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
+            Public Embeddings API (NVIDIA)
+            https://integrate.api.nvidia.com/v1
 ```
 
 ### Why This Approach?
 
-1. **Cost Effective**: GPU nodes ($0.75/hr) only for models, regular EC2 ($0.05/hr) for app
-2. **Simple**: All app services in one place, easy to manage
-3. **Flexible**: Can scale each independently
-4. **Familiar**: Docker Compose pattern you already have
+1. **Hackathon Constraints**: Max 2 EC2 instances (EKS nodes count as EC2)
+2. **Unified Orchestration**: All services managed by Kubernetes
+3. **Resource Efficiency**: GPU nodes used for both NIM and app (app doesn't need GPU)
+4. **LoadBalancer Integration**: Native Kubernetes service discovery
+5. **Public Embeddings**: Uses NVIDIA's public API (no GPU needed for embeddings)
 
 ### Setup Steps
 
-#### 1. Deploy NIM on EKS (Already covered)
-- Follow `eks-setup-guide.md`
-- Get LoadBalancer DNS for NIM endpoint
+#### 1. Deploy EKS Cluster with 2 Nodes
+- Follow `eks-setup-guide.md` Steps 1-5
+- Create cluster with 2 nodes (both g6e.xlarge)
 
-#### 2. Launch EC2 Instance
+#### 2. Deploy LLM NIM
+- Follow `eks-setup-guide.md` Steps 6-14
+- Deploy LLM NIM on one node
+- Note the LoadBalancer DNS
 
+#### 3. Label Nodes for Workload Separation
 ```bash
-# Instance specs
-Type: t3.medium or t3.large (2-4 vCPU, 4-8 GB RAM)
-OS: Amazon Linux 2023 or Ubuntu 22.04
-Storage: 20-30 GB EBS (for databases)
-Security Group: 
-  - Allow HTTP (80) from internet
-  - Allow SSH (22) from your IP
-  - Allow outbound (for calling NIM)
+kubectl label nodes <LLM_NODE> role=llm --overwrite
+kubectl label nodes <APP_NODE> role=app --overwrite
 ```
 
-#### 3. Install Dependencies on EC2
-
+#### 4. Build and Push Docker Images
 ```bash
-# Install Docker & Docker Compose
-sudo yum update -y
-sudo yum install docker -y
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker ec2-user
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Install Git
-sudo yum install git -y
+# Build for linux/amd64 and push to ECR
+AWS_REGION=us-east-1 API_BASE="" infrastructure/k8s/build_push.sh
 ```
 
-#### 4. Deploy Application
-
+#### 5. Deploy Application Stack
 ```bash
-# Clone your repo
-git clone <your-repo-url>
-cd aws-nvidia-hackathon
+# Create namespace and secrets
+kubectl apply -f infrastructure/k8s/app/namespace.yaml
+# Create server-env secret with NIM URLs and public embeddings API
 
-# Create production .env file
-cat > server/.env <<EOF
-AI_PROVIDER=nim
-NIM_OPENAI_BASE_URL=http://<your-nim-loadbalancer-dns>:8000/v1
-NIM_OPENAI_API_KEY=dummy-required
-NIM_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1
-NIM_EMBED_MODEL=NV-Embed-QA
-
-DATABASE_URL=postgres://takoping:takoping@postgres:5432/takoping
-CHROMA_URL=http://chroma:8000
-
-PORT=3000
-EOF
-
-# Update nginx.conf for production (if needed)
-# Update client Dockerfile args for production API URL
-
-# Start services
-docker-compose up -d
+# Deploy services
+kubectl apply -f infrastructure/k8s/app/postgres.yaml
+kubectl apply -f infrastructure/k8s/app/chroma.yaml
+kubectl apply -f infrastructure/k8s/app/server.yaml
+kubectl apply -f infrastructure/k8s/app/web.yaml
 ```
 
-#### 5. Configure Networking
-
-Your EC2 instance needs to reach the NIM LoadBalancer:
-- Both should be in same VPC (or use VPC peering)
-- Or use public LoadBalancer (already configured)
+**See `eks-full-deployment-guide.md` for complete step-by-step instructions.**
 
 ### Cost Estimate
 
 **Monthly (24/7):**
-- EKS GPU node: ~$550
+- EKS GPU nodes (2x g6e.xlarge): ~$1,100
 - EKS Control Plane: ~$73
-- EC2 t3.medium: ~$30
 - EBS Storage (20GB): ~$2
-- LoadBalancer: ~$18
-- **Total: ~$673/month**
+- LoadBalancers (2): ~$36
+- **Total: ~$1,211/month**
 
 **For Hackathon (1 week):**
-- ~$158/week
+- ~$280/week
+
+**Note**: This is higher than EC2 approach, but required due to hackathon constraints (max 2 EC2 instances).
 
 ---
 
-## Alternative: Everything on EKS
+## Alternative: EC2 Deployment (Not Used)
 
-If you want to learn Kubernetes or need production-grade setup:
+For hackathon constraints, we use the full EKS approach. If you had separate EC2 capacity, you could:
 
-### Architecture
+### EC2 + EKS Hybrid (Not Possible with Constraints)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  EKS Cluster                                            │
-│  ┌──────────────────┐  ┌──────────────────────────┐  │
-│  │  GPU Node Group  │  │  CPU Node Group           │  │
-│  │  (g6e.xlarge)    │  │  (t3.medium)              │  │
-│  │                  │  │                           │  │
-│  │  • NIM LLM       │  │  • Bun Server             │  │
-│  │  • NIM Embed     │  │  • PostgreSQL             │  │
-│  │                  │  │  • ChromaDB              │  │
-│  │                  │  │  • Nginx (Frontend)      │  │
-│  └──────────────────┘  └──────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
+- **EKS**: GPU nodes for NIM only
+- **EC2**: CPU instance for application stack
+- **Pros**: Lower cost (CPU instance cheaper than GPU node)
+- **Cons**: Not possible with max 2 EC2 limit (both consumed by EKS nodes)
 
-### Setup Complexity
-
-You'd need to:
-1. Create separate node groups (GPU vs CPU)
-2. Create Kubernetes manifests for each service
-3. Set up persistent volumes for databases
-4. Configure service discovery
-5. Set up ingress/load balancers
-
-### Pros
-- ✅ Unified orchestration
-- ✅ Better scaling
-- ✅ Production-ready
-- ✅ Good learning experience
-
-### Cons
-- ❌ More complex setup
-- ❌ Higher operational overhead
-- ❌ Still need to pay for GPU nodes even if app is idle
-- ❌ Steeper learning curve
-
----
-
-## Recommendation for Hackathon
-
-**Start with Hybrid (EKS + EC2):**
-- Faster to deploy
-- Lower cost
-- Easier to debug
-- Focus on building features, not infrastructure
-
-**Consider Full EKS if:**
-- You want to learn Kubernetes deeply
-- You need auto-scaling
-- You're building for production
-- You have time to invest in K8s setup
+**See `ec2-deployment-guide.md` for EC2 deployment instructions** (if you had capacity).
 
 ---
 
