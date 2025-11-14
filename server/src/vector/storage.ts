@@ -9,6 +9,7 @@ export async function addText(
 	options: {
 		source?: string;
 		idPrefix?: string;
+		metadata?: Metadata;
 	} = {}
 ): Promise<string[]> {
 	const chunks = chunkText(text);
@@ -31,6 +32,7 @@ export async function addText(
 		
 		const metadata: Metadata = {
 			source: options.source ?? "",
+			...(options.metadata ?? {}),
 			chunkIndex: index,
 			totalChunks: chunks.length,
 		};

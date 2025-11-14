@@ -1,3 +1,5 @@
+import { tool } from "ai";
+import { z } from "zod";
 import { pg } from "../../db/client";
 import {
 	getFileTreeForReactFlow,
@@ -5,7 +7,32 @@ import {
 	getRepository,
 } from "../../db/queries";
 
-export async function updateDiagramFilters(params: {
+// UpdateDiagramFilters tool schema
+const updateDiagramFiltersSchema = z.object({
+	diagramId: z.string().describe("ID of the diagram preset to update"),
+	filters: z.object({
+		pathPatterns: z.array(z.string()).optional(),
+		excludePaths: z.array(z.string()).optional(),
+		languages: z.array(z.string()).optional(),
+		maxDepth: z.number().optional(),
+	}),
+	additive: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("If true, adds to existing filters; if false, replaces them"),
+});
+
+export const updateDiagramTool = tool({
+	description:
+		"Modify an existing diagram's filters to hide, show, or filter files. Use this when users want to update the current diagram by hiding test files, excluding folders, filtering by language, or changing depth. IMPORTANT: When the system prompt indicates there is an active diagram ID, use that diagramId. If the user says 'this diagram', 'current diagram', or 'the diagram' without specifying an ID, use the activeDiagramId from the system prompt.",
+	inputSchema: updateDiagramFiltersSchema,
+	execute: async (params) => {
+		return await updateDiagram(params);
+	},
+});
+
+export async function updateDiagram(params: {
 	diagramId: string;
 	filters: {
 		pathPatterns?: string[];

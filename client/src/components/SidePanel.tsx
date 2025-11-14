@@ -14,6 +14,8 @@ import type { FileNode } from "@/types/reactflow";
 import FileTree from "./FileTree";
 import FileViewer from "./FileViewer";
 import PresetsList from "./PresetsList";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
 	id: string;
@@ -132,6 +134,8 @@ export default function SidePanel({
 
 									const isUser = message.role === "user";
 
+									const content = textParts.trim();
+
 									return (
 										<div
 											key={message.id}
@@ -148,8 +152,66 @@ export default function SidePanel({
 													<div className="text-xs font-medium mb-1 opacity-70">
 														{isUser ? "You" : "Assistant"}
 													</div>
-													<div className="text-sm whitespace-pre-wrap wrap-break-word">
-														{textParts}
+													<div className="wrap-break-word">
+														<ReactMarkdown
+															remarkPlugins={[remarkGfm]}
+															className={`text-sm leading-relaxed space-y-3 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${
+																isUser ? "text-primary-foreground" : "text-foreground"
+															} [&_strong]:font-semibold [&_code]:font-mono [&_p]:text-[0.95rem]`}
+															components={{
+																code({ inline, className, children, ...props }) {
+																	const language =
+																		/\blanguage-(\w+)/.exec(className ?? "")?.[1];
+																	if (inline) {
+																		return (
+																			<code
+																				className="rounded bg-muted/60 px-1 py-0.5 text-xs text-foreground"
+																				{...props}
+																			>
+																				{children}
+																			</code>
+																		);
+																	}
+
+																	return (
+																		<pre className="rounded-md bg-muted/60 p-3 text-xs overflow-x-auto">
+																			<code className={language ? `language-${language}` : undefined} {...props}>
+																				{children}
+																			</code>
+																		</pre>
+																	);
+																},
+																a({ children, href, ...props }) {
+																	return (
+																		<a
+																			className="underline font-medium text-primary"
+																			href={href}
+																			target="_blank"
+																			rel="noreferrer"
+																			{...props}
+																		>
+																			{children}
+																		</a>
+																	);
+																},
+																ul({ children, ...props }) {
+																	return (
+																		<ul className="list-disc pl-4 space-y-1" {...props}>
+																			{children}
+																		</ul>
+																	);
+																},
+																ol({ children, ...props }) {
+																	return (
+																		<ol className="list-decimal pl-4 space-y-1" {...props}>
+																			{children}
+																		</ol>
+																	);
+																},
+															}}
+														>
+															{content}
+														</ReactMarkdown>
 													</div>
 												</CardContent>
 											</Card>

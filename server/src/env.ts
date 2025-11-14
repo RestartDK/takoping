@@ -4,11 +4,15 @@ const EnvSchema = z.object({
 	// Server
 	PORT: z.coerce.number().int().positive().default(3000),
 
-	AI_PROVIDER: z.enum(["ollama", "nim"]).default("ollama"),
+	AI_PROVIDER: z.enum(["ollama", "nim", "openrouter"]).default("ollama"),
 
 	// Database
 	DATABASE_URL: z.string().optional(),
 	CHROMA_URL: z.string().optional(),
+
+	// Open router
+	OPEN_ROUTER_KEY: z.string().optional(),
+	OPEN_ROUTER_MODEL: z.string().optional(),
 
 	// Ollama
 	OLLAMA_BASE_URL: z.url().optional(),

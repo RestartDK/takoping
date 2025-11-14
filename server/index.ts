@@ -79,5 +79,3 @@ Bun.serve({
 		return new Response("Not Found", { status: 404, headers: corsHeaders });
 	},
 });
-
-console.log("Server running on port", process.env.PORT || 3000);
