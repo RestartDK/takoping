@@ -14,18 +14,15 @@ import type { FileNode } from "@/types/reactflow";
 import FileTree from "./FileTree";
 import FileViewer from "./FileViewer";
 import PresetsList from "./PresetsList";
-
-interface Message {
-	id: string;
-	role: "user" | "assistant" | "system";
-	parts: Array<{ type: string; text?: string }>;
-}
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { UIMessage } from "@ai-sdk/react";
 
 interface SidePanelProps {
 	nodes: FileNode[];
 	chatInput: string;
 	setChatInput: (value: string) => void;
-	messages: Message[];
+	messages: UIMessage[];
 	onSendChat: () => void;
 	onClearHistory: () => void;
 	loading: boolean;
@@ -123,14 +120,32 @@ export default function SidePanel({
 								{messages.map((message) => {
 									if (message.role === "system") return null;
 
+									// Safely extract text from UIMessage parts
 									const textParts = message.parts
-										.filter((p) => p.type === "text" && p.text)
-										.map((p) => p.text)
-										.join("");
+										? message.parts
+												.filter((p) => {
+													// Handle different part types safely
+													if (typeof p === "object" && p !== null) {
+														if ("type" in p && p.type === "text") {
+															return "text" in p && typeof p.text === "string" && p.text.length > 0;
+														}
+													}
+													return false;
+												})
+												.map((p) => {
+													// Type guard for text parts
+													if (typeof p === "object" && p !== null && "text" in p) {
+														return typeof p.text === "string" ? p.text : "";
+													}
+													return "";
+												})
+												.join("")
+										: "";
 
-									if (!textParts) return null;
+									if (!textParts || textParts.trim().length === 0) return null;
 
 									const isUser = message.role === "user";
+									const content = textParts.trim();
 
 									return (
 										<div
@@ -148,8 +163,88 @@ export default function SidePanel({
 													<div className="text-xs font-medium mb-1 opacity-70">
 														{isUser ? "You" : "Assistant"}
 													</div>
-													<div className="text-sm whitespace-pre-wrap wrap-break-word">
-														{textParts}
+													<div className="wrap-break-word">
+														{(() => {
+															try {
+																return (
+																	<div
+																		className={`text-sm leading-relaxed space-y-3 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${
+																			isUser ? "text-primary-foreground" : "text-foreground"
+																		} [&_strong]:font-semibold [&_code]:font-mono [&_p]:text-[0.95rem]`}
+																	>
+																		<ReactMarkdown
+																			remarkPlugins={[remarkGfm]}
+																			components={{
+																				code({ className, children, ...props }) {
+																					// Inline code - no language class means it's inline
+																					const hasLanguage = className?.includes("language-");
+																					if (!hasLanguage) {
+																						return (
+																							<code
+																								className="rounded bg-muted/60 px-1 py-0.5 text-xs text-foreground"
+																								{...props}
+																							>
+																								{children}
+																							</code>
+																						);
+																					}
+																					// Block code - will be wrapped in pre by the pre component
+																					return (
+																						<code className={className} {...props}>
+																							{children}
+																						</code>
+																					);
+																				},
+																				pre({ children, ...props }) {
+																					return (
+																						<pre className="rounded-md bg-muted/60 p-3 text-xs overflow-x-auto" {...props}>
+																							{children}
+																						</pre>
+																					);
+																				},
+																				a({ children, href, ...props }) {
+																					return (
+																						<a
+																							className="underline font-medium text-primary"
+																							href={href}
+																							target="_blank"
+																							rel="noreferrer"
+																							{...props}
+																						>
+																							{children}
+																						</a>
+																					);
+																				},
+																				ul({ children, ...props }) {
+																					return (
+																						<ul className="list-disc pl-4 space-y-1" {...props}>
+																							{children}
+																						</ul>
+																					);
+																				},
+																				ol({ children, ...props }) {
+																					return (
+																						<ol className="list-decimal pl-4 space-y-1" {...props}>
+																							{children}
+																						</ol>
+																					);
+																				},
+																			}}
+																		>
+																			{content}
+																		</ReactMarkdown>
+																	</div>
+																);
+															} catch (error) {
+																console.error("Error rendering markdown:", error);
+																// Fallback to plain text if markdown rendering fails
+																return (
+																	<div className="text-sm whitespace-pre-wrap wrap-break-word">
+																		{content}
+																	</div>
+																);
+															}
+														})()}
 													</div>
 												</CardContent>
 											</Card>
