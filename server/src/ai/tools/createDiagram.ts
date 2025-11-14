@@ -1,12 +1,52 @@
+import { tool } from "ai";
+import { z } from "zod";
 import {
 	getFileTreeForReactFlow,
 	saveDiagramPreset,
 	getRepository,
 } from "../../db/queries";
+import type { RequestContext } from "../../types/context";
+
+// CreateDiagram tool schema
+const createDiagramSchema = z.object({
+	name: z.string().describe("Diagram title (e.g., 'TypeScript Source Files')"),
+	description: z.string().optional().describe("Human-readable description of the diagram"),
+	filters: z
+		.object({
+			pathPatterns: z
+				.array(z.string())
+				.optional()
+				.describe("Include paths matching these patterns (e.g., ['src/**', 'lib/**'])"),
+			excludePaths: z
+				.array(z.string())
+				.optional()
+				.describe("Exclude paths matching these patterns (e.g., ['**/*.test.ts', 'node_modules/**'])"),
+			languages: z
+				.array(z.string())
+				.optional()
+				.describe("Filter by programming languages (e.g., ['typescript', 'python'])"),
+			maxDepth: z.number().optional().describe("Maximum tree depth to show (default: 7)"),
+		})
+		.optional(),
+	layoutType: z.enum(["hierarchical", "treemap"]).optional().describe("Layout algorithm to use"),
+});
+
+/**
+ * Factory function that creates a createDiagram tool with request context.
+ * This allows the tool to access owner/repo information from the request.
+ */
+export function makeCreateDiagramTool(ctx: RequestContext) {
+	return tool({
+		description:
+			"Generate a new file tree diagram/visualization of the codebase with customizable filters. Use this when the user asks to create, generate, or show a diagram, visualization, or visual representation of the codebase structure.",
+		inputSchema: createDiagramSchema,
+		execute: async (params) => {
+			return await createDiagram({ ...params, ctx });
+		},
+	});
+}
 
 export async function createDiagram(params: {
-	owner: string;
-	repo: string;
 	name?: string;
 	description?: string;
 	filters?: {
@@ -16,8 +56,10 @@ export async function createDiagram(params: {
 		maxDepth?: number;
 	};
 	layoutType?: string;
+	ctx: RequestContext;
 }) {
-	const { owner, repo, filters, layoutType } = params;
+	const { filters, layoutType, ctx } = params;
+	const { owner, repo } = ctx;
 	
 	// Generate name if not provided (agent should provide this, but fallback for edge cases)
 	let name = params.name;
@@ -56,10 +98,12 @@ export async function createDiagram(params: {
 		}
 	}
 
+	const repoKey = `${owner}/${repo}`;
+	
 	// Get repository to find repoId
-	const repoRecord = await getRepository(`${owner}/${repo}`);
+	const repoRecord = await getRepository(repoKey);
 	if (!repoRecord) {
-		throw new Error(`Repository ${owner}/${repo} not found`);
+		throw new Error(`Repository ${repoKey} not found`);
 	}
 
 	// Build options for getFileTreeForReactFlow
@@ -71,7 +115,7 @@ export async function createDiagram(params: {
 	}
 
 	// Generate the diagram nodes and edges
-	const layoutResult = await getFileTreeForReactFlow(`${owner}/${repo}`, options);
+	const layoutResult = await getFileTreeForReactFlow(repoKey, options);
 
 	if (!layoutResult) {
 		throw new Error("Failed to generate diagram layout");
