@@ -104,8 +104,6 @@ export async function buildFileTree(
 			const numSize = Number(node.size);
 			if (!isNaN(numSize) && numSize >= 0 && numSize <= 9223372036854775807) {
 				fileSize = Math.floor(numSize);
-			} else {
-				console.warn(`[POSTGRES] Invalid size for ${node.path}: ${node.size} (type: ${typeof node.size}), defaulting to 0`);
 			}
 		}
 
@@ -135,8 +133,6 @@ async function updateCumulativeMetrics(repoId: string) {
     ORDER BY depth DESC
   `;
 
-	console.log(`[POSTGRES] Updating cumulative metrics for ${nodes.length} nodes`);
-
 	const sizeMap = new Map<string, number>();
 	const countMap = new Map<string, number>();
 
@@ -159,16 +155,12 @@ async function updateCumulativeMetrics(repoId: string) {
 		const safeCumulativeSize = Math.min(Math.floor(cumulativeSize), 9223372036854775807);
 		const fileCount = countMap.get(id) || 0;
 		
-		console.log(`[POSTGRES] Updating node ${id}: cumulative_size=${safeCumulativeSize}, file_count=${fileCount}`);
-		
 		await pg`
       UPDATE file_tree_nodes
       SET cumulative_size = ${safeCumulativeSize}, file_count = ${fileCount}
       WHERE id = ${id}
     `;
 	}
-	
-	console.log(`[POSTGRES] Cumulative metrics updated successfully`);
 }
 
 export async function markFileAsIndexed(repoId: string, path: string, chunkCount: number) {
@@ -313,8 +305,6 @@ function computeTreemapLayout(
 			reactFlowEdges.push(edge);
 		}
 	}
-
-	console.log(`[POSTGRES] Sugiyama layout complete: ${reactFlowNodes.length} nodes rendered, ${reactFlowEdges.length} edges created (total DB nodes: ${dbNodes.length})`);
 
 	return {
 		nodes: reactFlowNodes,
