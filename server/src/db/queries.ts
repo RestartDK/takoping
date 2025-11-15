@@ -1,4 +1,4 @@
-import { pg } from "./client";
+import { pg } from "@/db/client";
 
 // React Flow-compatible types (no React dependency needed)
 export interface ReactFlowNodeData {

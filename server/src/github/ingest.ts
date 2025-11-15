@@ -1,10 +1,10 @@
-import { octokit, type GitHubFile } from "./client";
+import { octokit, type GitHubFile } from "@/github/client";
 import type { Octokit } from "octokit";
-import { chunkByLanguage, detectLanguage } from "../vector/chunkers";
-import { getDocumentsCollection } from "../vector/collections";
+import { chunkByLanguage, detectLanguage } from "@/vector/chunkers";
+import { getDocumentsCollection } from "@/vector/collections";
 import type { Collection } from "chromadb";
-import { upsertRepository, buildFileTree, markFileAsIndexed, updateRepositoryIndexingStatus } from "../db/queries";
-import { addGitHubChunks } from "../vector/storage";
+import { upsertRepository, buildFileTree, markFileAsIndexed, updateRepositoryIndexingStatus } from "@/db/queries";
+import { addGitHubChunks } from "@/vector/storage";
 
 const BINARY_EXTENSIONS = new Set([
 	"png",

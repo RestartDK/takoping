@@ -1,6 +1,6 @@
 import type { Collection, Metadata, Where } from "chromadb";
-import { env } from "../env";
-export { addText } from "../vector/storage";
+import { env } from "@/env";
+export { addText } from "@/vector/storage";
 
 export interface SearchFilters {
 	repo?: string;

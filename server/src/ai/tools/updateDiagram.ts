@@ -1,11 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { pg } from "../../db/client";
+import { pg } from "@/db/client";
 import {
 	getFileTreeForReactFlow,
 	saveDiagramPreset,
 	getRepository,
-} from "../../db/queries";
+} from "@/db/queries";
 
 // UpdateDiagramFilters tool schema
 const updateDiagramFiltersSchema = z.object({

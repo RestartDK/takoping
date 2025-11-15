@@ -1,4 +1,4 @@
-import { env } from "../env";
+import { env } from "@/env";
 import type { Metadata } from "chromadb";
 
 export function buildPrompt(

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { ingestRepository, getIngestJob, deltaUpdate } from "../github/ingest";
-import { fetchFileContent } from "../github/ingest";
-import { octokit } from "../github/client";
-import { getDocumentsCollection } from "../vector/collections";
-import { getRepository } from "../db/queries";
+import { ingestRepository, getIngestJob, deltaUpdate } from "@/github/ingest";
+import { fetchFileContent } from "@/github/ingest";
+import { octokit } from "@/github/client";
+import { getDocumentsCollection } from "@/vector/collections";
+import { getRepository } from "@/db/queries";
 
 const IngestSchema = z.object({
 	owner: z.string().min(1, "owner is required"),

@@ -1,6 +1,6 @@
 import type { Collection, Metadata } from "chromadb";
-import type { Chunk } from "./chunkers";
-import { chunkText } from "./chunkers";
+import type { Chunk } from "@/vector/chunkers";
+import { chunkText } from "@/vector/chunkers";
 
 // Adding new data to vector db embeddings
 export async function addText(

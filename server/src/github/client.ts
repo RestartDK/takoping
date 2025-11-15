@@ -1,5 +1,5 @@
 import { Octokit } from "octokit";
-import { env } from "../env";
+import { env } from "@/env";
 
 if (!env.GITHUB_TOKEN) {
 	throw new Error("GITHUB_TOKEN is required for GitHub API access");

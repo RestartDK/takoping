@@ -1,7 +1,7 @@
-import { env } from "../env";
+import { env } from "@/env";
 import { z } from "zod";
-import { searchByText, addText, type SearchFilters } from "../ai/retriever";
-import { getDocumentsCollection } from "../vector/collections";
+import { searchByText, addText, type SearchFilters } from "@/ai/retriever";
+import { getDocumentsCollection } from "@/vector/collections";
 import {
 	convertToModelMessages,
 	type UIMessage,
@@ -10,8 +10,8 @@ import {
 	stepCountIs,
 	generateId,
 } from "ai";
-import { makeCreateDiagramTool, makeUpdateDiagramTool } from "../ai/tools";
-import { model } from "../ai/model";
+import { makeCreateDiagramTool, makeUpdateDiagramTool } from "@/ai/tools";
+import { model } from "@/ai/model";
 
 // Schema for UIMessage parts - supports all part types
 // Using a flexible approach since UIMessagePart is a complex union type

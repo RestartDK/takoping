@@ -4,7 +4,7 @@ import {
 	getFileTreeForReactFlow,
 	saveDiagramPreset,
 	getRepository,
-} from "../../db/queries";
+} from "@/db/queries";
 
 // CreateDiagram tool schema
 const createDiagramSchema = z.object({

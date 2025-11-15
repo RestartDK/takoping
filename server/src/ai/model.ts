@@ -1,4 +1,4 @@
-import { env } from "../env";
+import { env } from "@/env";
 import { createOllama } from "ai-sdk-ollama";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";

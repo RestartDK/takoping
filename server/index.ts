@@ -1,7 +1,7 @@
-import { chatRoute, chatAddRoute } from "./src/routes/chat";
-import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "./src/routes/github";
-import { getTreeRoute, getPresetsRoute, savePresetRoute, getPresetByIdRoute } from "./src/routes/diagrams";
-import { initSchema } from "./src/db/client";
+import { chatRoute, chatAddRoute } from "@/routes/chat";
+import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "@/routes/github";
+import { getTreeRoute, getPresetsRoute, savePresetRoute, getPresetByIdRoute } from "@/routes/diagrams";
+import { initSchema } from "@/db/client";
 
 // Initialize PostgreSQL schema
 await initSchema();
