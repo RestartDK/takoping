@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: takoping
       POSTGRES_USER: takoping
@@ -16,6 +18,8 @@ services:
 
   chroma:
     image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
     volumes:
       - chroma:/data
     restart: unless-stopped
@@ -24,6 +28,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
     env_file:
       - ./server/.env
     environment:
