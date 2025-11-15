@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset, getDiagramPresetById } from "../db/queries";
+import { getRepository, getFileTreeForReactFlow, getDiagramPresets, saveDiagramPreset, getDiagramPresetById } from "@/db/queries";
+import { buildDiagramFromEntities } from "@/ai/tools/createDiagram";
+import type { DiagramEntity, DiagramRelationship } from "@/ai/types/diagrams";
 
 const SavePresetSchema = z.object({
 	owner: z.string().min(1, "owner is required"),
@@ -119,9 +121,8 @@ export const getPresetsRoute = async (req: Request) => {
 	}
 };
 
-export const getPresetByIdRoute = async (req: Request) => {
-	const url = new URL(req.url);
-	const presetId = url.searchParams.get("id");
+export const getPresetByIdRoute = async (req: Request, params?: { id: string }) => {
+	const presetId = params?.id;
 
 	if (!presetId) {
 		return new Response(JSON.stringify({ error: "preset id required" }), {
@@ -150,18 +151,32 @@ export const getPresetByIdRoute = async (req: Request) => {
 			});
 		}
 
-		// Get the preset config to check for maxDepth
+		// Get the preset config
 		const config = preset.config as Record<string, unknown> || {};
-		const maxDepth = typeof config.maxDepth === 'number' ? config.maxDepth : 10;
+		const diagramType = (preset as any).diagram_type || config.diagramType as string || "file_tree";
 
-		// Get the file tree for this repository
-		const layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
+		let layoutResult: { nodes: any[]; edges: any[] } | null = null;
 
-		if (!layoutResult) {
-			return new Response(JSON.stringify({ error: "Failed to generate diagram layout" }), {
-				status: 500,
-				headers: { "content-type": "application/json" },
-			});
+		// For conceptual diagrams, regenerate from saved entities/relationships
+		if (diagramType !== "file_tree" && config.entities && config.relationships) {
+			const entities = config.entities as DiagramEntity[];
+			const relationships = config.relationships as DiagramRelationship[];
+			const layoutType = (config.layoutType as string) || "force_directed";
+			
+			layoutResult = buildDiagramFromEntities(entities, relationships, diagramType, layoutType);
+		} else {
+			// For file_tree diagrams, use the file tree
+			const maxDepth = typeof config.maxDepth === 'number' ? config.maxDepth : 
+				typeof (config.filters as any)?.maxDepth === 'number' ? (config.filters as any).maxDepth : 10;
+			
+			layoutResult = await getFileTreeForReactFlow(ownerRepo, { maxDepth });
+
+			if (!layoutResult) {
+				return new Response(JSON.stringify({ error: "Failed to generate diagram layout" }), {
+					status: 500,
+					headers: { "content-type": "application/json" },
+				});
+			}
 		}
 
 		// Return React Flow compatible format with nodes, edges, and diagramId
@@ -174,7 +189,7 @@ export const getPresetByIdRoute = async (req: Request) => {
 					id: preset.id,
 					name: preset.name,
 					description: preset.description,
-					type: preset.type,
+					type: preset.diagram_type,
 				},
 			}),
 			{

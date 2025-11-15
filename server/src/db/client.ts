@@ -1,5 +1,5 @@
 import { sql, SQL } from "bun";
-import { env } from "../env";
+import { env } from "@/env";
 
 export const pg = env.DATABASE_URL ? new SQL(env.DATABASE_URL) : sql;
 

@@ -1,7 +1,7 @@
 import { streamText, type ModelMessage } from "ai";
 import { createOllama } from "ai-sdk-ollama";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { env } from "../env";
+import { env } from "@/env";
 
 export async function streamResponse(
 	messages: ModelMessage[],

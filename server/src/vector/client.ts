@@ -1,7 +1,7 @@
 import { OllamaEmbeddingFunction } from "@chroma-core/ollama";
 import { ChromaClient } from "chromadb";
-import { env } from "../env";
-import { NIMEmbedding } from "./nim-embedding";
+import { env } from "@/env";
+import { NIMEmbedding } from "@/vector/nim-embedding";
 
 // Prefer CHROMA_URL via env (e.g., http://chroma:8000 in Docker),
 // fallback to default localhost if not provided

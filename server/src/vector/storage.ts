@@ -1,6 +1,6 @@
 import type { Collection, Metadata } from "chromadb";
-import type { Chunk } from "./chunkers";
-import { chunkText } from "./chunkers";
+import type { Chunk } from "@/vector/chunkers";
+import { chunkText } from "@/vector/chunkers";
 
 // Adding new data to vector db embeddings
 export async function addText(
@@ -9,6 +9,7 @@ export async function addText(
 	options: {
 		source?: string;
 		idPrefix?: string;
+		metadata?: Metadata;
 	} = {}
 ): Promise<string[]> {
 	const chunks = chunkText(text);
@@ -31,6 +32,7 @@ export async function addText(
 		
 		const metadata: Metadata = {
 			source: options.source ?? "",
+			...(options.metadata ?? {}),
 			chunkIndex: index,
 			totalChunks: chunks.length,
 		};

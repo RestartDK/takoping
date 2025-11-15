@@ -1,4 +1,4 @@
-import { chromaClient, getEmbedder } from "./client";
+import { chromaClient, getEmbedder } from "@/vector/client";
 
 export async function getUsersCollection() {
 	const embeddingFunction = getEmbedder();

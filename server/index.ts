@@ -1,7 +1,7 @@
-import { chatRoute, chatAddRoute } from "./src/routes/chat";
-import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "./src/routes/github";
-import { getTreeRoute, getPresetsRoute, savePresetRoute, getPresetByIdRoute } from "./src/routes/diagrams";
-import { initSchema } from "./src/db/client";
+import { chatRoute, chatAddRoute } from "@/routes/chat";
+import { ingestRoute, ingestStatusRoute, webhookRoute, getFileContentRoute } from "@/routes/github";
+import { getTreeRoute, getPresetsRoute, savePresetRoute, getPresetByIdRoute } from "@/routes/diagrams";
+import { initSchema } from "@/db/client";
 
 // Initialize PostgreSQL schema
 await initSchema();
@@ -30,6 +30,7 @@ function withCors(handler: (req: Request) => Response | Promise<Response>) {
 }
 
 Bun.serve({
+	idleTimeout: 30,
 	port: process.env.PORT ? Number(process.env.PORT) : 3000,
 	routes: {
 		// Health check
@@ -71,6 +72,13 @@ Bun.serve({
 		"/api/diagrams/preset": {
 			POST: withCors(savePresetRoute),
 		},
+		"/api/diagrams/preset/:id": {
+			GET: withCors((req) => {
+				const url = new URL(req.url);
+				const id = url.pathname.split('/').pop() || '';
+				return getPresetByIdRoute(req, { id });
+			}),
+		},
 	},
 	fetch(req) {
 		if (req.method === "OPTIONS") {
@@ -79,5 +87,3 @@ Bun.serve({
 		return new Response("Not Found", { status: 404, headers: corsHeaders });
 	},
 });
-
-console.log("Server running on port", process.env.PORT || 3000);
