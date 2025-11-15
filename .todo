@@ -28,18 +28,20 @@ Todo:
     ✔ Fix context utilisation with prompts from project to make sure it only talks about the project you are currently on @started(25-11-02 15:58) @done(25-11-02 18:14) @lasted(2h16m20s)
     ✔ Fix message history in the app @started(25-11-02 18:14) @done(25-11-02 18:27) @lasted(13m7s)
     ✔ Define agent tool schema (focusNode, expandPath, openFileRange, createTour) @done(25-11-02 21:37)
-    - Implement tool calls so that we can actually have a new diagram generated for the user, like the ai must determine when to do this action using a tool call and then make a new preset diagram
-    - Implement better prompts throughout for citing and actually using tools
+    ✔ Fix the zod schema for the api route @done(25-11-13 23:03)
+    ✔ Start with a basic chat history where you just dump all of it into the vector db? @done(25-11-13 23:23)
+    ✔ Fix the history from chromadb and tool calling with search knowledge @started(25-11-14 13:44) @done(25-11-14 14:29) @lasted(45m25s)
+    - Try to get the diagram creation to work with kimi model @started(25-11-14 14:30)
+    - Move from kimi model back to ollama, here optimise approach like routing to get it working with smaller model
+    - Try to implement a basic approach with just using the manual generate text and such with deterministic workflow
+    - Create an in depth chat history optimisation, look at either top n / summary of chat solution
+    - Try a different workflow suggested from the docs, keep on trying with the most manual one
+    - If all else fails, transistion into using the agent class
     - Create the feature where you can generate a new diagram and have the option to save it
-    - Remove all unecessary debug logging
+    - Allow option to reference your diagrams in the chat
     - Fix metadata for repositories to include description and stars
     - Try with normal rag to generate the diagrams, then experiment with agentic rag using this [framework](https://medium.com/@aydinKerem/ai-agents-design-patterns-explained-b3ac0433c915)
     - Experiment with multiple agent solutions, see which one performs best
-    - Make docker compose to run the app with pg db, chroma, be, and fe
-    - Create plan on how to generate the diagram for the whole repository (use github next example)
-    - Attempt to deploy a llama reasoning model on aws
-    - Attempt to deploy a retrieval nim on aws
-    - Create custom implementation of retrieval nim for chromadb embeddings function
     ✔ Implement GitHub API repo scan with auth, rate limit handling @done(25-11-01 13:08)
 
   Client: 
