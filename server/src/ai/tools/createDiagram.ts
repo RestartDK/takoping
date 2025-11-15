@@ -5,7 +5,6 @@ import {
 	saveDiagramPreset,
 	getRepository,
 } from "../../db/queries";
-import type { RequestContext } from "../../types/context";
 
 // CreateDiagram tool schema
 const createDiagramSchema = z.object({
@@ -32,16 +31,16 @@ const createDiagramSchema = z.object({
 });
 
 /**
- * Factory function that creates a createDiagram tool with request context.
+ * Factory function that creates a createDiagram tool with request variables.
  * This allows the tool to access owner/repo information from the request.
  */
-export function makeCreateDiagramTool(ctx: RequestContext) {
+export function makeCreateDiagramTool(owner: string, repo: string) {
 	return tool({
 		description:
 			"Generate a new file tree diagram/visualization of the codebase with customizable filters. Use this when the user asks to create, generate, or show a diagram, visualization, or visual representation of the codebase structure.",
 		inputSchema: createDiagramSchema,
 		execute: async (params) => {
-			return await createDiagram({ ...params, ctx });
+			return await createDiagram({ ...params, owner, repo });
 		},
 	});
 }
@@ -56,10 +55,10 @@ export async function createDiagram(params: {
 		maxDepth?: number;
 	};
 	layoutType?: string;
-	ctx: RequestContext;
+	owner: string;
+	repo: string;
 }) {
-	const { filters, layoutType, ctx } = params;
-	const { owner, repo } = ctx;
+	const { filters, layoutType, owner, repo } = params;
 	
 	// Generate name if not provided (agent should provide this, but fallback for edge cases)
 	let name = params.name;

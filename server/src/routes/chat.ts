@@ -12,7 +12,6 @@ import {
 } from "ai";
 import { makeCreateDiagramTool, makeUpdateDiagramTool } from "../ai/tools";
 import { model } from "../ai/model";
-import type { RequestContext } from "../types/context";
 
 // Schema for UIMessage parts - supports all part types
 // Using a flexible approach since UIMessagePart is a complex union type
@@ -152,17 +151,10 @@ export const chatRoute = async (req: Request) => {
 
 	const { messages, owner, repo, activeDiagramId } = parsed.data;
 
-	// Create request context object
-	const ctx: RequestContext = {
-		owner,
-		repo,
-		activeDiagramId,
-	};
-
 	try {
-		// Create tools using factory functions with context
-		const createDiagramTool = makeCreateDiagramTool(ctx);
-		const updateDiagramTool = makeUpdateDiagramTool(ctx);
+		// Create tools using factory functions with request variables
+		const createDiagramTool = makeCreateDiagramTool(owner, repo);
+		const updateDiagramTool = makeUpdateDiagramTool(activeDiagramId);
 
 		// Create searchKnowledge tool with owner/repo context
 		const searchKnowledgeTool = tool({
@@ -176,7 +168,7 @@ export const chatRoute = async (req: Request) => {
 			execute: async ({ query }) => {
 				const collection = await getDocumentsCollection();
 				const filters: SearchFilters = {
-					repo: `${ctx.owner}/${ctx.repo}`,
+					repo: `${owner}/${repo}`,
 				};
 				const results = await searchByText(
 					query,
@@ -205,7 +197,7 @@ export const chatRoute = async (req: Request) => {
 				const collection = await getDocumentsCollection();
 				const id = generateId();
 				const idPrefix = `chat-${id.slice(0, 8)}`;
-				const repoKey = `${ctx.owner}/${ctx.repo}`;
+				const repoKey = `${owner}/${repo}`;
 
 				const ids = await addText(collection, resource, {
 					source: `chat-history:${repoKey}`,

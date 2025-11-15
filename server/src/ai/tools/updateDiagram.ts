@@ -6,7 +6,6 @@ import {
 	saveDiagramPreset,
 	getRepository,
 } from "../../db/queries";
-import type { RequestContext } from "../../types/context";
 
 // UpdateDiagramFilters tool schema
 const updateDiagramFiltersSchema = z.object({
@@ -25,18 +24,18 @@ const updateDiagramFiltersSchema = z.object({
 });
 
 /**
- * Factory function that creates an updateDiagram tool with request context.
- * The context provides activeDiagramId which can be used as a default.
+ * Factory function that creates an updateDiagram tool with request variables.
+ * The activeDiagramId can be used as a default if diagramId is not provided.
  */
-export function makeUpdateDiagramTool(ctx: RequestContext) {
+export function makeUpdateDiagramTool(activeDiagramId: string) {
 	return tool({
 		description:
 			"Modify an existing diagram's filters to hide, show, or filter files. Use this when users want to update the current diagram by hiding test files, excluding folders, filtering by language, or changing depth. IMPORTANT: When the system prompt indicates there is an active diagram ID, use that diagramId. If the user says 'this diagram', 'current diagram', or 'the diagram' without specifying an ID, use the activeDiagramId from the system prompt.",
 		inputSchema: updateDiagramFiltersSchema,
 		execute: async (params) => {
 			// Use activeDiagramId as default if diagramId is not provided or is a placeholder
-			const diagramId = params.diagramId || ctx.activeDiagramId;
-			return await updateDiagram({ ...params, diagramId, ctx });
+			const diagramId = params.diagramId || activeDiagramId;
+			return await updateDiagram({ ...params, diagramId });
 		},
 	});
 }
@@ -50,7 +49,6 @@ export async function updateDiagram(params: {
 		maxDepth?: number;
 	};
 	additive?: boolean;
-	ctx: RequestContext;
 }) {
 	const { diagramId, filters, additive = false } = params;
 
