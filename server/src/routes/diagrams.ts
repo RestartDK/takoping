@@ -119,9 +119,8 @@ export const getPresetsRoute = async (req: Request) => {
 	}
 };
 
-export const getPresetByIdRoute = async (req: Request) => {
-	const url = new URL(req.url);
-	const presetId = url.searchParams.get("id");
+export const getPresetByIdRoute = async (req: Request, params?: { id: string }) => {
+	const presetId = params?.id;
 
 	if (!presetId) {
 		return new Response(JSON.stringify({ error: "preset id required" }), {
