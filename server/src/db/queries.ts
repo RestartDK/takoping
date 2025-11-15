@@ -35,6 +35,57 @@ export interface ReactFlowEdge {
 	type?: string;
 }
 
+// Database row types matching schema.sql
+export interface RepositoryRow {
+	id: string;
+	owner_repo: string;
+	owner: string;
+	repo: string;
+	description: string | null;
+	default_branch: string;
+	stars: number;
+	language: string | null;
+	last_indexed_at: Date | null;
+	indexing_status: string;
+	indexing_error: string | null;
+	tree_sha: string | null;
+	created_at: Date;
+	updated_at: Date;
+}
+
+export interface FileTreeNodeRow {
+	id: string;
+	repo_id: string;
+	path: string;
+	name: string;
+	node_type: string;
+	parent_node: string | null;
+	file_size: number;
+	cumulative_size: number;
+	file_count: number;
+	depth: number;
+	language: string | null;
+	extension: string | null;
+	blob_sha: string | null;
+	last_modified: Date | null;
+	has_chunks: boolean;
+	chunk_count: number;
+	created_at: Date;
+	updated_at: Date;
+}
+
+export interface DiagramPresetRow {
+	id: string;
+	repo_id: string;
+	user_id: string | null;
+	name: string;
+	description: string | null;
+	diagram_type: string;
+	config: Record<string, unknown>;
+	is_default: boolean;
+	created_at: Date;
+}
+
 // Repository operations
 export async function upsertRepository(data: {
 	owner: string;
@@ -44,7 +95,7 @@ export async function upsertRepository(data: {
 	stars?: number;
 	language?: string;
 	treeSha?: string;
-}) {
+}): Promise<RepositoryRow> {
 	const ownerRepo = `${data.owner}/${data.repo}`;
 
 	const result = await pg`
@@ -56,17 +107,24 @@ export async function upsertRepository(data: {
       description = EXCLUDED.description,
       updated_at = NOW()
     RETURNING *
-  `;
+  ` as RepositoryRow[];
 
+	if (!result[0]) {
+		throw new Error("Failed to upsert repository");
+	}
 	return result[0];
 }
 
-export async function getRepository(ownerRepo: string) {
-	const result = await pg`SELECT * FROM repositories WHERE owner_repo = ${ownerRepo}`;
+export async function getRepository(ownerRepo: string): Promise<RepositoryRow | null> {
+	const result = await pg`SELECT * FROM repositories WHERE owner_repo = ${ownerRepo}` as RepositoryRow[];
 	return result[0] || null;
 }
 
-export async function updateRepositoryIndexingStatus(ownerRepo: string, status: string, error?: string) {
+export async function updateRepositoryIndexingStatus(
+	ownerRepo: string,
+	status: string,
+	error?: string
+): Promise<void> {
 	await pg`
     UPDATE repositories 
     SET indexing_status = ${status},
@@ -89,7 +147,7 @@ export async function buildFileTree(
 		extension?: string;
 		blobSha?: string;
 	}>
-) {
+): Promise<void> {
 	await pg`DELETE FROM file_tree_nodes WHERE repo_id = ${repoId}`;
 
 	// Insert nodes
@@ -124,14 +182,14 @@ export async function buildFileTree(
 	await updateCumulativeMetrics(repoId);
 }
 
-async function updateCumulativeMetrics(repoId: string) {
+async function updateCumulativeMetrics(repoId: string): Promise<void> {
 	// Compute cumulative sizes bottom-up
 	const nodes = await pg`
     SELECT id, parent_node, file_size, node_type
     FROM file_tree_nodes
     WHERE repo_id = ${repoId}
     ORDER BY depth DESC
-  `;
+  ` as Array<Pick<FileTreeNodeRow, "id" | "parent_node" | "file_size" | "node_type">>;
 
 	const sizeMap = new Map<string, number>();
 	const countMap = new Map<string, number>();
@@ -163,7 +221,11 @@ async function updateCumulativeMetrics(repoId: string) {
 	}
 }
 
-export async function markFileAsIndexed(repoId: string, path: string, chunkCount: number) {
+export async function markFileAsIndexed(
+	repoId: string,
+	path: string,
+	chunkCount: number
+): Promise<void> {
 	const nodeId = `${repoId}:${path}`;
 	await pg`
     UPDATE file_tree_nodes
@@ -190,7 +252,7 @@ export async function getFileTreeForReactFlow(
     SELECT * FROM file_tree_nodes 
     WHERE repo_id = ${repo.id}
     ORDER BY path
-  `;
+  ` as FileTreeNodeRow[];
 
 	// Compute treemap layout
 	const layoutResult = computeTreemapLayout(nodes, options);
@@ -200,7 +262,7 @@ export async function getFileTreeForReactFlow(
 
 // Sugiyama hierarchical layout algorithm
 function computeTreemapLayout(
-	dbNodes: any[],
+	dbNodes: FileTreeNodeRow[],
 	options: { maxDepth?: number; minArea?: number } = {}
 ): {
 	nodes: ReactFlowNode[];
@@ -212,7 +274,7 @@ function computeTreemapLayout(
 	const filteredNodes = dbNodes.filter((n) => (n.depth || 0) <= maxDepth);
 	
 	// Group nodes by depth (layers)
-	const layers = new Map<number, any[]>();
+	const layers = new Map<number, FileTreeNodeRow[]>();
 	for (const node of filteredNodes) {
 		const depth = node.depth || 0;
 		if (!layers.has(depth)) {
@@ -313,7 +375,7 @@ function computeTreemapLayout(
 }
 
 
-function getColorForNode(node: any): string {
+function getColorForNode(node: FileTreeNodeRow): string {
 	// Color by language/type
 	const colorMap: Record<string, string> = {
 		typescript: "#3178c6",
@@ -325,7 +387,7 @@ function getColorForNode(node: any): string {
 		directory: "#e0e0e0",
 	};
 
-	return colorMap[node.language] || colorMap[node.node_type] || "#cccccc";
+	return colorMap[node.language || ""] || colorMap[node.node_type] || "#cccccc";
 }
 
 // Diagram preset operations
@@ -336,34 +398,39 @@ export async function saveDiagramPreset(data: {
 	description?: string;
 	type: string;
 	config: Record<string, unknown>;
-}) {
+}): Promise<DiagramPresetRow> {
 	const result = await pg`
     INSERT INTO diagram_presets (repo_id, user_id, name, description, diagram_type, config)
     VALUES (${data.repoId}, ${data.userId || null}, ${data.name}, ${data.description || null},
-            ${data.type}, ${JSON.stringify(data.config)})
+            ${data.type}, ${data.config})
     ON CONFLICT (repo_id, name) DO UPDATE SET config = EXCLUDED.config
     RETURNING *
-  `;
+  ` as DiagramPresetRow[];
+	if (!result[0]) {
+		throw new Error("Failed to save diagram preset");
+	}
 	return result[0];
 }
 
-export async function getDiagramPresets(ownerRepo: string) {
+export async function getDiagramPresets(ownerRepo: string): Promise<DiagramPresetRow[]> {
 	const repo = await getRepository(ownerRepo);
 	if (!repo) return [];
 
 	return await pg`
     SELECT * FROM diagram_presets WHERE repo_id = ${repo.id}
     ORDER BY is_default DESC, created_at DESC
-  `;
+  ` as DiagramPresetRow[];
 }
 
-export async function getDiagramPresetById(presetId: string) {
+export async function getDiagramPresetById(
+	presetId: string
+): Promise<(DiagramPresetRow & { owner_repo: string }) | null> {
 	const result = await pg`
     SELECT dp.*, r.owner_repo
     FROM diagram_presets dp
     JOIN repositories r ON dp.repo_id = r.id
     WHERE dp.id = ${presetId}
-  `;
+  ` as Array<DiagramPresetRow & { owner_repo: string }>;
 	return result[0] || null;
 }
 
