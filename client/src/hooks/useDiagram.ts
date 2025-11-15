@@ -84,7 +84,7 @@ export function useDiagram(): UseDiagramReturn {
 
 			try {
 				const res = await fetch(
-					`${API_BASE}/api/diagrams/preset?id=${presetId}`
+					`${API_BASE}/api/diagrams/preset/${presetId}`
 				);
 
 				if (!res.ok) {
